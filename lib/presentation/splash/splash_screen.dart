@@ -7,33 +7,38 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: AppColors.primary,
+      backgroundColor: AppColors.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite, color: Colors.white, size: 80),
+            Icon(
+              Icons.medical_services_rounded,
+              size: 80,
+              color: AppColors.primary,
+            ),
             SizedBox(height: 24),
             Text(
               'SOZOTAP',
               style: TextStyle(
-                color: Colors.white,
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 2,
+                fontFamily: 'Poppins',
+                color: AppColors.primary,
               ),
             ),
             SizedBox(height: 8),
             Text(
               'One Tap Can Save a Life.',
               style: TextStyle(
-                color: Colors.white70,
-                fontSize: 16,
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                fontFamily: 'Poppins',
               ),
             ),
             SizedBox(height: 48),
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
           ],
         ),

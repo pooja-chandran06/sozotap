@@ -9,20 +9,27 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final user = authState.value;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('SOZOTAP Dashboard', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'SOZOTAP Dashboard',
+          style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 0,
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Admin Templates',
+            onPressed: () => context.push('/admin/templates'),
+          ),
+          IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authControllerProvider.notifier).signOut();
-            },
+            tooltip: 'Logout',
+            onPressed: () => ref.read(authRepositoryProvider).signOut(),
           ),
         ],
       ),
@@ -32,54 +39,41 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.medical_services, color: AppColors.primary, size: 80),
+              const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 80,
+                color: Colors.green,
+              ),
               const SizedBox(height: 24),
               Text(
-                'Emergency Ready',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your medical profile is secured and ready for one-tap access.',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () => context.push('/medical-profile'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Edit Medical Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                'Welcome, ${user?.email ?? "User"}!',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'Poppins',
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: () => context.push('/emergency-contacts'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary, width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                  child: const Text('Emergency Contacts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              const Text(
+                'SOZOTAP Phase 2: Firebase Bootstrap, Auth & Protected Routing Active.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.textSecondary,
+                  fontFamily: 'Poppins',
+                ),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () => context.push('/emergency-contacts'),
+                icon: const Icon(Icons.warning_rounded),
+                label: const Text('Emergency Contacts & SOS Trigger'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ],

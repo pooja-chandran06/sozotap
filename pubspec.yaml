@@ -14,6 +14,13 @@ dependencies:
   go_router: ^13.2.0
   google_fonts: ^6.2.1
   cupertino_icons: ^1.0.6
+  firebase_core: ^2.25.4
+  firebase_auth: ^4.17.6
+  google_sign_in: ^6.2.1
+  cloud_firestore: ^4.15.8
+  firebase_storage: ^11.6.9
+  shared_preferences: ^2.2.2
+  logger: ^2.0.2
 
 dev_dependencies:
   flutter_test:
