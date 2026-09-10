@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../constants/app_colors.dart';
 import '../../../core/sos/sos_orchestrator.dart';
 import '../../../core/sos/sos_logger.dart';
@@ -33,6 +34,20 @@ class _SosActionSheetState extends ConsumerState<SosActionSheet> {
   List<String> _dispatchedMessageIds = [];
   bool _isDispatched = false;
   bool _isInvoking = false;
+
+  Future<void> _makeCall(String phoneNumber) async {
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
+
+  Future<void> _sendSms(String phoneNumber) async {
+    final Uri launchUri = Uri(scheme: 'sms', path: phoneNumber);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,9 +164,19 @@ class _SosActionSheetState extends ConsumerState<SosActionSheet> {
           ),
           Row(
             children: [
-              if (contact.canCall) const Icon(Icons.phone, color: Colors.green, size: 28),
-              const SizedBox(width: 16),
-              if (contact.canSms) const Icon(Icons.message, color: Colors.blue, size: 28),
+              if (contact.canCall)
+                IconButton(
+                  icon: const Icon(Icons.phone, color: Colors.green, size: 28),
+                  tooltip: 'Call ${contact.name}',
+                  onPressed: () => _makeCall(contact.phoneNumber),
+                ),
+              const SizedBox(width: 8),
+              if (contact.canSms)
+                IconButton(
+                  icon: const Icon(Icons.message, color: Colors.blue, size: 28),
+                  tooltip: 'SMS ${contact.name}',
+                  onPressed: () => _sendSms(contact.phoneNumber),
+                ),
             ],
           )
         ],

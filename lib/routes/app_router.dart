@@ -10,6 +10,15 @@ import '../authentication/presentation/screens/forgot_password_screen.dart';
 import '../presentation/dashboard/home_screen.dart';
 import '../authentication/presentation/providers/auth_provider.dart';
 import '../providers/onboarding_provider.dart';
+import '../emergency_contacts/presentation/screens/emergency_contacts_screen.dart';
+import '../emergency_contacts/presentation/screens/add_edit_contact_screen.dart';
+import '../emergency_contacts/domain/models/emergency_contact.dart';
+import '../sos/presentation/screens/sos_countdown_screen.dart';
+import '../sos/presentation/screens/active_sos_screen.dart';
+import '../sos/presentation/screens/sos_alert_detail_screen.dart';
+import '../notifications/presentation/screens/notifications_screen.dart';
+import '../notifications/presentation/screens/notification_settings_screen.dart';
+import '../qr/presentation/screens/my_emergency_qr_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -44,6 +53,60 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/sos',
+        builder: (context, state) => const SosCountdownScreen(),
+      ),
+      GoRoute(
+        path: '/sos-active/:alertId',
+        builder: (context, state) {
+          final alertId = state.pathParameters['alertId'] ?? '';
+          return ActiveSosScreen(alertId: alertId);
+        },
+      ),
+      GoRoute(
+        path: '/sos-alert/:alertId',
+        builder: (context, state) {
+          final alertId = state.pathParameters['alertId'] ?? '';
+          return SosAlertDetailScreen(alertId: alertId);
+        },
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: '/notification-settings',
+        builder: (context, state) => const NotificationSettingsScreen(),
+      ),
+      GoRoute(
+        path: '/my-emergency-qr',
+        builder: (context, state) => const MyEmergencyQrScreen(),
+      ),
+      GoRoute(
+        path: '/emergency-contacts',
+        builder: (context, state) => const EmergencyContactsScreen(),
+        routes: [
+          GoRoute(
+            path: 'add',
+            builder: (context, state) => const AddEditContactScreen(),
+          ),
+          GoRoute(
+            path: 'add-edit',
+            builder: (context, state) {
+              final contact = state.extra as EmergencyContact?;
+              return AddEditContactScreen(contact: contact);
+            },
+          ),
+          GoRoute(
+            path: ':contactId/edit',
+            builder: (context, state) {
+              final contact = state.extra as EmergencyContact?;
+              return AddEditContactScreen(contact: contact);
+            },
+          ),
+        ],
       ),
     ],
     redirect: (context, state) {

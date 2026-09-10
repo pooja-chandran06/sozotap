@@ -1,0 +1,104 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny all unauthenticated or unhandled collection access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // -------------------------------------------------------------------------
+    // USERS & SUB-COLLECTIONS
+    // -------------------------------------------------------------------------
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Emergency Contacts
+      match /emergency_contacts/{contactId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Device Tokens (FCM Tokens)
+      match /device_tokens/{tokenId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Notification Preferences
+      match /notification_preferences/{prefId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+
+    // Legacy fallback for top-level emergency_contacts if used
+    match /emergency_contacts/{contactId} {
+      allow read, write: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // -------------------------------------------------------------------------
+    // MEDICAL PROFILES
+    // -------------------------------------------------------------------------
+    match /medical_profiles/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // -------------------------------------------------------------------------
+    // EMERGENCY ALERTS
+    // -------------------------------------------------------------------------
+    match /emergency_alerts/{alertId} {
+      allow create: if isAuthenticated() && request.resource.data.ownerUserId == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.ownerUserId == request.auth.uid ||
+        resource.data.status == "active"
+      );
+      allow update: if isAuthenticated() && resource.data.ownerUserId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // INBOX NOTIFICATIONS
+    // -------------------------------------------------------------------------
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.recipientUserId == request.auth.uid;
+      // Allow marking as read by recipient
+      allow update: if isAuthenticated() 
+        && resource.data.recipientUserId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+      allow create, delete: if false; // Only Cloud Functions can create notifications
+    }
+
+    // -------------------------------------------------------------------------
+    // MESSAGE DELIVERIES (Backend Audit Logs)
+    // -------------------------------------------------------------------------
+    match /message_deliveries/{deliveryId} {
+      allow read: if isAuthenticated() && (
+        resource.data.recipientUserId == request.auth.uid ||
+        resource.data.senderUserId == request.auth.uid
+      );
+      allow write: if false; // Strictly managed by Cloud Functions Admin SDK
+    }
+
+    // -------------------------------------------------------------------------
+    // EMERGENCY QR TOKENS & AUDITS
+    // -------------------------------------------------------------------------
+    match /emergency_qr_tokens/{tokenId} {
+      allow read, write: if isAuthenticated() && resource.data.ownerUserId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.ownerUserId == request.auth.uid;
+    }
+
+    match /qr_scan_audits/{auditId} {
+      allow read: if isAuthenticated() && resource.data.ownerUserId == request.auth.uid;
+      allow write: if false;
+    }
+  }
+}
