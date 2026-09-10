@@ -1,30 +1,34 @@
-# SOZOTAP Security & Data Privacy Policy
+# SOZOTAP Security & Data Protection Policy
 
-SOZOTAP implements strict zero-trust security practices to protect sensitive emergency and medical profile data.
-
----
-
-## 🔒 Security Principles
-
-### 1. No Secrets in Mobile Client or Local Cache
-- No Firebase Admin SDK keys, Twilio auth tokens, FCM server keys, or webhook secrets reside in Flutter client code.
-- Passwords, raw secret QR tokens, and raw Admin keys are NEVER saved in offline Hive cache or local storage.
-- User offline Hive boxes are key-namespaced by User ID (`user_<uid>_profile`) and purged on logout.
-
-### 2. PII & Medical Log Redaction
-- All Cloud Functions logs strip sensitive information using `redactPhoneNumber()`, `redactFcmToken()`, `redactEmail()`, and `sanitizeLogObject()`.
-- Exact GPS coordinates and medical details are redacted before writing to log sinks.
-
-### 3. Authoritative Consent Redaction
-- Paramedic QR resolution (`resolveEmergencyQr`) reads user-configured privacy consent flags (`shareBloodGroupInEmergency`, `shareAllergiesInEmergency`, etc.) as authoritative redaction controls.
-- Disabling `emergencyAccessEnabled` blocks public QR resolution completely.
-
-### 4. Protected Cloud Function Account Deletion
-- Destructive account deletion (`deleteUserAccount`) is executed via an authenticated Firebase Cloud Function that revokes QR tokens, deletes Firestore documents, removes Storage assets, and deletes the Auth user account.
+Security and patient data confidentiality are the highest priorities of SOZOTAP. This document summarizes key security policies and mechanisms.
 
 ---
 
-## 📋 Firestore & Storage Access Rules
-- Default deny policy on all collections and storage buckets.
-- `device_tokens`, `notification_preferences`, `privacy_settings`, and `medical_profiles` accessible only by the owner user (`request.auth.uid == userId`).
-- `message_deliveries` client write access is completely blocked (`allow write: if false`).
+## 1. Zero Secrets Policy
+- Client application builds **must never** contain hardcoded API keys, database credentials, server secrets, or private tokens.
+- FCM Server Keys, Twilio Auth Tokens, and Service Account Keys are strictly isolated within Firebase Secret Manager and accessed exclusively by Cloud Functions v2 Admin SDK.
+
+---
+
+## 2. PII & Medical Data Redaction
+- Console logging across Flutter app is routed through `SafeLogger`.
+- `SafeLogger` automatically redacts emails (`j***e@domain`), phone numbers (`+14****2671`), bearer/auth tokens, GPS coordinates, and medical record values prior to print.
+- Raw stack traces and raw database errors are intercepted by `ErrorMapper` to return non-revealing, user-safe error messages.
+
+---
+
+## 3. Storage & Database Security Rules
+- **Firestore Security Rules**: Default deny all access. User data is partitioned by `request.auth.uid`. Fields like `alert_sent`, `token_hash`, and backend timestamps cannot be modified by client SDKs.
+- **Storage Security Rules**: Default deny all access. User file uploads are limited to `users/{uid}/profile/*`, enforcing a max size of `< 5MB` and MIME type `image/.*`.
+
+---
+
+## 4. App Attestation & Tamper Protection
+- Firebase App Check is enabled via `AppCheckService`.
+- Release builds enforce Play Integrity attestation on Android devices.
+- Unauthenticated or tampered requests are rejected at the Firebase edge before reaching Firestore or Cloud Functions.
+
+---
+
+## 5. Vulnerability Reporting
+To report security vulnerabilities or data exposure concerns, please email: `security@vitanexus.app`.

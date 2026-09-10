@@ -1,0 +1,43 @@
+name: SOZOTAP Firebase Cloud Functions CI Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'functions/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'functions/**'
+
+jobs:
+  build_and_test_functions:
+    name: TypeScript Build & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'functions/package-lock.json'
+
+      - name: Install Node Modules
+        working-directory: functions
+        run: npm ci
+
+      - name: Lint TypeScript Code
+        working-directory: functions
+        run: npm run lint
+
+      - name: Compile TypeScript
+        working-directory: functions
+        run: npm run build
+
+      - name: Run Functions Unit Tests
+        working-directory: functions
+        run: npm test

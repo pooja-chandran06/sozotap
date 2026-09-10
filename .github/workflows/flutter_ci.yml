@@ -1,0 +1,41 @@
+name: SOZOTAP Flutter CI/CD Workflow
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  analyze_and_test:
+    name: Flutter Analyze & Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.x'
+          channel: 'stable'
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter Code
+        run: flutter analyze
+
+      - name: Run Unit & Widget Tests
+        run: flutter test --coverage
+
+      - name: Build Android APK (Dry Run)
+        run: flutter build apk --debug

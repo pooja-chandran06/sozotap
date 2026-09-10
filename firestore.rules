@@ -8,13 +8,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
     
-    // helper functions
-    function isAuthenticated() {
+    // Helper functions
+    function signedIn() {
       return request.auth != null;
     }
     
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function hasOnlyAllowedKeys(allowedKeys) {
+      return request.resource.data.keys().hasOnly(allowedKeys);
     }
 
     // -------------------------------------------------------------------------
@@ -23,7 +27,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 
-      // Emergency Contacts
+      // Emergency Contacts Sub-collection
       match /emergency_contacts/{contactId} {
         allow read, write: if isOwner(userId);
       }
@@ -44,10 +48,10 @@ service cloud.firestore {
       }
     }
 
-    // Legacy fallback for top-level emergency_contacts if used
+    // Legacy fallback for top-level emergency_contacts if queried directly
     match /emergency_contacts/{contactId} {
-      allow read, write: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read, write: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
     }
 
     // -------------------------------------------------------------------------
@@ -61,12 +65,14 @@ service cloud.firestore {
     // EMERGENCY ALERTS
     // -------------------------------------------------------------------------
     match /emergency_alerts/{alertId} {
-      allow create: if isAuthenticated() && request.resource.data.ownerUserId == request.auth.uid;
-      allow read: if isAuthenticated() && (
+      allow create: if signedIn() && request.resource.data.ownerUserId == request.auth.uid;
+      allow read: if signedIn() && (
         resource.data.ownerUserId == request.auth.uid ||
         resource.data.status == "active"
       );
-      allow update: if isAuthenticated() && resource.data.ownerUserId == request.auth.uid;
+      // Owner can update, but cannot overwrite backend audit fields
+      allow update: if signedIn() && resource.data.ownerUserId == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['alert_sent', 'dispatch_count']);
       allow delete: if false;
     }
 
@@ -74,19 +80,19 @@ service cloud.firestore {
     // INBOX NOTIFICATIONS
     // -------------------------------------------------------------------------
     match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.recipientUserId == request.auth.uid;
+      allow read: if signedIn() && resource.data.recipientUserId == request.auth.uid;
       // Allow marking as read by recipient
-      allow update: if isAuthenticated() 
+      allow update: if signedIn() 
         && resource.data.recipientUserId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
-      allow create, delete: if false; // Only Cloud Functions can create notifications
+      allow create, delete: if false; // Only Cloud Functions can create/delete notifications
     }
 
     // -------------------------------------------------------------------------
     // MESSAGE DELIVERIES (Backend Audit Logs)
     // -------------------------------------------------------------------------
     match /message_deliveries/{deliveryId} {
-      allow read: if isAuthenticated() && (
+      allow read: if signedIn() && (
         resource.data.recipientUserId == request.auth.uid ||
         resource.data.senderUserId == request.auth.uid
       );
@@ -97,12 +103,13 @@ service cloud.firestore {
     // EMERGENCY QR TOKENS & AUDITS
     // -------------------------------------------------------------------------
     match /emergency_qr_tokens/{tokenId} {
-      allow read, write: if isAuthenticated() && resource.data.ownerUserId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.ownerUserId == request.auth.uid;
+      allow read: if signedIn() && resource.data.ownerUserId == request.auth.uid;
+      // Creation and updates strictly managed via Cloud Functions to enforce token hashing
+      allow write: if false;
     }
 
     match /qr_scan_audits/{auditId} {
-      allow read: if isAuthenticated() && resource.data.ownerUserId == request.auth.uid;
+      allow read: if signedIn() && resource.data.ownerUserId == request.auth.uid;
       allow write: if false;
     }
   }

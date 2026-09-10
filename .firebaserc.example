@@ -1,0 +1,7 @@
+{
+  "projects": {
+    "default": "sozotap-production",
+    "staging": "sozotap-staging",
+    "development": "sozotap-dev"
+  }
+}

@@ -1,81 +1,58 @@
-# Firebase Cloud Functions Setup Guide
+# Firebase Cloud Functions v2 Setup & Secrets Guide
 
-This guide describes how to configure, build, test, and deploy the SOZOTAP Cloud Functions v2 backend.
-
----
-
-## 🛠 Dependencies & Prerequisites
-- Node.js `18`
-- Firebase Tools CLI (`npm install -g firebase-tools`)
-- TypeScript `5.3+`
+This document explains how to build, test, configure secrets, and deploy Firebase Cloud Functions v2 for SOZOTAP.
 
 ---
 
-## 📂 Project Directory Structure
-```
-functions/
-├── src/
-│   ├── config.ts              # Firebase Params secrets definitions
-│   ├── types.ts               # Core backend data interfaces
-│   ├── services/
-│   │   ├── fcm_service.ts     # Firebase Admin SDK FCM sendEach handler
-│   │   ├── sms_service.ts     # Twilio / Disabled SMS Provider implementation
-│   │   ├── delivery_service.ts# Message delivery tracking in message_deliveries
-│   │   └── notification_service.ts # Recipient inbox notification builder
-│   ├── utils/
-│   │   ├── logger.ts          # Structured logger wrapping Firebase Logger
-│   │   ├── redaction.ts       # Log redaction helper for PII and medical data
-│   │   └── idempotency.ts     # SHA-256 idempotency key generator
-│   └── index.ts               # Firestore triggers & Callable endpoints
-├── test/
-│   └── functions.test.ts      # Jest unit tests for backend logic
-├── package.json
-├── tsconfig.json
-└── jest.config.js
-```
+## 1. Cloud Functions Architecture
+The backend services reside in `functions/` built using Node.js 18, TypeScript, and Firebase Functions v2 SDK.
+
+### Primary Cloud Functions Endpoints:
+- `sendEmergencyAlert`: Firestore onCreate trigger on `/emergency_alerts/{alertId}`. Dispatches FCM push notifications to priority contacts and invokes SMS fallback engine.
+- `resolveEmergencyQr`: HTTPS Callable / REST API endpoint (`/resolveEmergencyQr`). Resolves dynamic QR tokens for paramedics and applies user privacy consent filters.
+- `rotateEmergencyQrToken`: HTTPS Callable endpoint. Rotates or revokes dynamic QR tokens on demand.
+- `deleteUserAccount`: HTTPS Callable endpoint. Deletes all user data from Auth, Firestore, and Storage.
 
 ---
 
-## 🔑 Setting Secrets via Firebase Secrets Manager
+## 2. Setting Up Secrets in Firebase Secret Manager
 
-Privileged credentials (such as Twilio account SID and auth tokens) MUST NOT be saved in source code. Configure them using Firebase CLI:
+SOZOTAP Cloud Functions use Firebase Secret Manager for Twilio SMS integration:
 
 ```bash
-# Set Twilio SMS Provider Secrets (Optional if using active Twilio SMS)
-firebase functions:secrets:set SMS_PROVIDER
-# Value: twilio
-
+# Set Twilio Account SID
 firebase functions:secrets:set TWILIO_ACCOUNT_SID
-# Value: ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
+# Set Twilio Auth Token
 firebase functions:secrets:set TWILIO_AUTH_TOKEN
-# Value: your_auth_token_here
 
-firebase functions:secrets:set TWILIO_FROM_NUMBER
-# Value: +15005550006
+# Set Twilio Phone Number
+firebase functions:secrets:set TWILIO_PHONE_NUMBER
 ```
 
 ---
 
-## 🚀 Building & Deploying
-
-### 1. Build TypeScript Source
+## 3. Local Development & Testing
 ```bash
 cd functions
-npm run build
-```
 
-### 2. Run Local Unit Tests
-```bash
+# Install dependencies
+npm ci
+
+# Run TypeScript linter
+npm run lint
+
+# Compile TypeScript
+npm run build
+
+# Run unit tests
 npm test
 ```
 
-### 3. Start Local Emulator
-```bash
-npm run serve
-```
+---
 
-### 4. Deploy to Firebase Production
+## 4. Deployment
+To deploy Cloud Functions to Firebase production:
 ```bash
 firebase deploy --only functions
 ```
