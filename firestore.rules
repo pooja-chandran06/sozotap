@@ -112,5 +112,37 @@ service cloud.firestore {
       allow read: if signedIn() && resource.data.ownerUserId == request.auth.uid;
       allow write: if false;
     }
+
+    // -------------------------------------------------------------------------
+    // IOT HARDWARE DEVICES & EVENTS (PHASE 9)
+    // -------------------------------------------------------------------------
+    match /iot_devices/{deviceId} {
+      allow read: if signedIn() && resource.data.ownerUserId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.ownerUserId == request.auth.uid;
+      allow update: if signedIn() && resource.data.ownerUserId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /device_events/{eventId} {
+      allow read: if signedIn() && resource.data.ownerUserId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.ownerUserId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /device_pairing_sessions/{sessionId} {
+      allow read: if signedIn() && resource.data.ownerUserId == request.auth.uid;
+      allow write: if false; // Strictly managed by Cloud Functions
+    }
+
+    // -------------------------------------------------------------------------
+    // CAREGIVER RELATIONSHIPS (PHASE 9.4)
+    // -------------------------------------------------------------------------
+    match /caregiver_relationships/{relId} {
+      allow read: if signedIn() && (
+        resource.data.ownerUserId == request.auth.uid ||
+        resource.data.caregiverUserId == request.auth.uid
+      );
+      allow write: if false; // Strictly managed by Cloud Functions
+    }
   }
 }

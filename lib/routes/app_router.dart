@@ -23,6 +23,11 @@ import '../settings/presentation/screens/settings_screen.dart';
 import '../settings/presentation/screens/privacy_settings_screen.dart';
 import '../settings/presentation/screens/about_screen.dart';
 import '../settings/presentation/screens/account_screen.dart';
+import '../nfc/presentation/screens/nfc_management_screen.dart';
+import '../iot/presentation/screens/device_management_screen.dart';
+import '../iot/presentation/screens/ble_pairing_screen.dart';
+import '../caregiver/presentation/screens/caregiver_list_screen.dart';
+import '../caregiver/presentation/screens/invite_caregiver_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -57,6 +62,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/devices',
+        builder: (context, state) => const DeviceManagementScreen(),
+        routes: [
+          GoRoute(
+            path: 'nfc',
+            builder: (context, state) => const NfcManagementScreen(),
+          ),
+          GoRoute(
+            path: 'pair',
+            builder: (context, state) => const BlePairingScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/caregivers',
+        builder: (context, state) => const CaregiverListScreen(),
+        routes: [
+          GoRoute(
+            path: 'invite',
+            builder: (context, state) => const InviteCaregiverScreen(),
+          ),
+        ],
       ),
       GoRoute(
         path: '/settings',
@@ -131,6 +160,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
     ],
+
     redirect: (context, state) {
       final isSplash = state.matchedLocation == '/splash';
       final isLoggingIn = state.matchedLocation == '/login' ||

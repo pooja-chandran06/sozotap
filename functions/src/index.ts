@@ -660,3 +660,363 @@ export const onEmergencyAlertUpdated = onDocumentUpdated(
     }
   }
 );
+
+// -----------------------------------------------------------------------------
+// IOT DEVICE PAIRING & EVENT INGESTION CALLABLE / REST ENDPOINTS (PHASE 9.3)
+// -----------------------------------------------------------------------------
+
+export const createDevicePairingSession = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const userId = request.auth.uid;
+  const deviceType = request.data?.deviceType || "ble_wearable";
+
+  try {
+    const sessionId = `pair_${generateOpaqueToken().substring(0, 16)}`;
+    const challengeCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const challengeHash = hashToken(challengeCode);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    const sessionRef = db.collection("device_pairing_sessions").doc(sessionId);
+    await sessionRef.set({
+      sessionId: sessionId,
+      ownerUserId: userId,
+      deviceType: deviceType,
+      status: "pending",
+      challengeHash: challengeHash,
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt: Timestamp.fromDate(expiresAt),
+      pairedDeviceId: null,
+    });
+
+    safeLogger.info(`Created device pairing session ${sessionId} for user ${userId}`);
+    return {
+      sessionId: sessionId,
+      challengeCode: challengeCode,
+      expiresAt: expiresAt.toISOString(),
+    };
+  } catch (error) {
+    safeLogger.error("Error creating device pairing session", error);
+    throw new HttpsError("internal", "Failed to create pairing session.");
+  }
+});
+
+export const completeDevicePairing = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const userId = request.auth.uid;
+  const sessionId = request.data?.sessionId;
+  const challengeCode = request.data?.challengeCode;
+  const deviceName = request.data?.displayName || "SOZOTAP Hardware Device";
+  const connectionType = request.data?.connectionType || "wifi";
+
+  if (!sessionId || !challengeCode) {
+    throw new HttpsError("invalid-argument", "sessionId and challengeCode are required.");
+  }
+
+  try {
+    const sessionDoc = await db.collection("device_pairing_sessions").doc(sessionId).get();
+    if (!sessionDoc.exists || sessionDoc.data()?.ownerUserId !== userId) {
+      throw new HttpsError("permission-denied", "Unauthorized pairing attempt.");
+    }
+
+    const sData = sessionDoc.data()!;
+    if (sData.status !== "pending") {
+      throw new HttpsError("failed-precondition", "Pairing session is no longer pending.");
+    }
+
+    if (sData.expiresAt.toDate() < new Date()) {
+      throw new HttpsError("failed-precondition", "Pairing session expired.");
+    }
+
+    if (hashToken(challengeCode) !== sData.challengeHash) {
+      throw new HttpsError("invalid-argument", "Invalid challenge code.");
+    }
+
+    const deviceId = `dev_${generateOpaqueToken().substring(0, 16)}`;
+    const secretToken = generateOpaqueToken();
+
+    const deviceRef = db.collection("iot_devices").doc(deviceId);
+    const now = new Date();
+
+    const deviceData = {
+      deviceId: deviceId,
+      ownerUserId: userId,
+      displayName: deviceName,
+      connectionType: connectionType,
+      status: "paired",
+      firmwareVersion: "1.0.0",
+      batteryLevel: 100,
+      lastSeenAt: FieldValue.serverTimestamp(),
+      pairedAt: FieldValue.serverTimestamp(),
+      revokedAt: null,
+      sosEnabled: true,
+      deviceLocationEnabled: true,
+      secretTokenHash: hashToken(secretToken),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    const batch = db.batch();
+    batch.set(deviceRef, deviceData);
+    batch.update(sessionDoc.ref, {
+      status: "paired",
+      pairedDeviceId: deviceId,
+      pairedAt: FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+
+    safeLogger.info(`Successfully completed pairing for device ${deviceId}`);
+    return {
+      deviceId: deviceId,
+      secretToken: secretToken,
+      pairedAt: now.toISOString(),
+    };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    safeLogger.error("Error completing device pairing", error);
+    throw new HttpsError("internal", "Failed to complete device pairing.");
+  }
+});
+
+export const revokeDevice = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const userId = request.auth.uid;
+  const deviceId = request.data?.deviceId;
+
+  if (!deviceId) throw new HttpsError("invalid-argument", "deviceId required.");
+
+  try {
+    const devDoc = await db.collection("iot_devices").doc(deviceId).get();
+    if (!devDoc.exists || devDoc.data()?.ownerUserId !== userId) {
+      throw new HttpsError("permission-denied", "Unauthorized.");
+    }
+
+    await devDoc.ref.update({
+      status: "revoked",
+      revokedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true, deviceId: deviceId };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Failed to revoke device.");
+  }
+});
+
+export const ingestDeviceEvent = onCall(async (request) => {
+  const { deviceId, secretToken, eventId, eventType, batteryLevel, payload } = request.data || {};
+
+  if (!deviceId || !secretToken || !eventId || !eventType) {
+    throw new HttpsError("invalid-argument", "Missing required fields.");
+  }
+
+  try {
+    const devDoc = await db.collection("iot_devices").doc(deviceId).get();
+    if (!devDoc.exists) {
+      throw new HttpsError("not-found", "Device not registered.");
+    }
+
+    const devData = devDoc.data()!;
+    if (devData.status !== "paired" || devData.secretTokenHash !== hashToken(secretToken)) {
+      throw new HttpsError("permission-denied", "Invalid device credentials.");
+    }
+
+    const ownerUserId = devData.ownerUserId;
+    const idempotencyKey = `${deviceId}-${eventId}`;
+
+    // Duplicate check
+    const existingEvt = await db.collection("device_events").doc(eventId).get();
+    if (existingEvt.exists) {
+      return { status: "ignored", reason: "duplicate_event" };
+    }
+
+    const eventRef = db.collection("device_events").doc(eventId);
+    await eventRef.set({
+      eventId: eventId,
+      deviceId: deviceId,
+      ownerUserId: ownerUserId,
+      type: eventType,
+      createdAt: FieldValue.serverTimestamp(),
+      status: "received",
+      batteryLevel: batteryLevel || null,
+      payload: payload || {},
+      idempotencyKey: idempotencyKey,
+    });
+
+    // Update battery & lastSeenAt on device
+    await devDoc.ref.update({
+      lastSeenAt: FieldValue.serverTimestamp(),
+      batteryLevel: batteryLevel || devData.batteryLevel,
+    });
+
+    // If SOS event, create emergency_alert to trigger FCM/SMS pipeline
+    if (eventType === "sos_pressed" || eventType === "fall_candidate") {
+      const alertRef = db.collection("emergency_alerts").doc();
+      await alertRef.set({
+        alertId: alertRef.id,
+        ownerUserId: ownerUserId,
+        status: "active",
+        createdAt: FieldValue.serverTimestamp(),
+        source: `iot_${deviceId}`,
+        deviceType: devData.connectionType,
+      });
+      safeLogger.info(`Triggered emergency alert ${alertRef.id} via IoT event ${eventId}`);
+    }
+
+    return { status: "processed", eventId: eventId };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    safeLogger.error("Error ingesting device event", error);
+    throw new HttpsError("internal", "Failed to ingest device event.");
+  }
+});
+
+// -----------------------------------------------------------------------------
+// CAREGIVER ACCESS CALLABLE FUNCTIONS (PHASE 9.4)
+// -----------------------------------------------------------------------------
+
+export const createCaregiverInvitation = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const ownerUserId = request.auth.uid;
+  const caregiverEmail = request.data?.caregiverEmail;
+  const permissions = request.data?.permissions || {
+    viewEmergencySummary: true,
+    receiveSosAlerts: true,
+    viewActiveSosLocation: true,
+  };
+
+  if (!caregiverEmail || typeof caregiverEmail !== "string") {
+    throw new HttpsError("invalid-argument", "caregiverEmail required.");
+  }
+
+  try {
+    const userRecord = await auth.getUserByEmail(caregiverEmail.trim());
+    const caregiverUserId = userRecord.uid;
+
+    if (caregiverUserId === ownerUserId) {
+      throw new HttpsError("invalid-argument", "Cannot invite yourself as caregiver.");
+    }
+
+    const relId = `rel_${ownerUserId}_${caregiverUserId}`;
+    const relRef = db.collection("caregiver_relationships").doc(relId);
+
+    await relRef.set({
+      relationshipId: relId,
+      ownerUserId: ownerUserId,
+      caregiverUserId: caregiverUserId,
+      role: "Caregiver",
+      permissions: permissions,
+      invitationStatus: "pending",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    safeLogger.info(`Created caregiver invitation ${relId} from ${ownerUserId} to ${caregiverUserId}`);
+    return { success: true, relationshipId: relId };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Failed to create caregiver invitation.");
+  }
+});
+
+export const acceptCaregiverInvitation = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const caregiverUserId = request.auth.uid;
+  const relationshipId = request.data?.relationshipId;
+
+  if (!relationshipId) throw new HttpsError("invalid-argument", "relationshipId required.");
+
+  try {
+    const relDoc = await db.collection("caregiver_relationships").doc(relationshipId).get();
+    if (!relDoc.exists || relDoc.data()?.caregiverUserId !== caregiverUserId) {
+      throw new HttpsError("permission-denied", "Unauthorized.");
+    }
+
+    await relDoc.ref.update({
+      invitationStatus: "accepted",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Failed to accept invitation.");
+  }
+});
+
+export const declineCaregiverInvitation = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const caregiverUserId = request.auth.uid;
+  const relationshipId = request.data?.relationshipId;
+
+  if (!relationshipId) throw new HttpsError("invalid-argument", "relationshipId required.");
+
+  try {
+    const relDoc = await db.collection("caregiver_relationships").doc(relationshipId).get();
+    if (!relDoc.exists || relDoc.data()?.caregiverUserId !== caregiverUserId) {
+      throw new HttpsError("permission-denied", "Unauthorized.");
+    }
+
+    await relDoc.ref.update({
+      invitationStatus: "declined",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Failed to decline invitation.");
+  }
+});
+
+export const revokeCaregiverAccess = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const userId = request.auth.uid;
+  const relationshipId = request.data?.relationshipId;
+
+  if (!relationshipId) throw new HttpsError("invalid-argument", "relationshipId required.");
+
+  try {
+    const relDoc = await db.collection("caregiver_relationships").doc(relationshipId).get();
+    if (!relDoc.exists) throw new HttpsError("not-found", "Relationship not found.");
+
+    const rData = relDoc.data()!;
+    if (rData.ownerUserId !== userId && rData.caregiverUserId !== userId) {
+      throw new HttpsError("permission-denied", "Unauthorized.");
+    }
+
+    await relDoc.ref.update({
+      invitationStatus: "revoked",
+      revokedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", "Failed to revoke caregiver access.");
+  }
+});
+

@@ -38,6 +38,22 @@
         { "fieldPath": "ownerUserId", "order": "ASCENDING" },
         { "fieldPath": "enabled", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "iot_devices",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerUserId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "caregiver_relationships",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerUserId", "order": "ASCENDING" },
+        { "fieldPath": "invitationStatus", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
