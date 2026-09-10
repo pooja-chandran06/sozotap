@@ -1,20 +1,30 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.sozotap.app">
 
-    <!-- Foreground Location Permissions for Emergency SOS -->
-    <!-- ACCESS_FINE_LOCATION: Allows the app to access precise GPS location coordinates during an emergency alert. -->
+    <!-- Foreground & Background Location Permissions for Emergency SOS -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    
-    <!-- ACCESS_COARSE_LOCATION: Allows the app to access approximate location derived from cellular network and Wi-Fi when indoors or GPS is weak. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-    <!-- Internet Access for Firestore & Firebase Auth -->
+    <!-- Android 13+ Notification Permission -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Vibration & Emergency Calling Permissions -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+
+    <!-- Internet Access for Firestore, FCM & Auth -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="SOZOTAP"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        
+        <!-- Default Notification Channel ID for FCM -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="emergency_sos_channel" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -32,8 +42,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <!-- Don't delete the meta-data below.
-             This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
+        
+        <!-- Flutter plugin registration meta-data -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

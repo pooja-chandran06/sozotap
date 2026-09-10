@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -57,6 +58,23 @@ class _AddEditContactScreenState extends ConsumerState<AddEditContactScreen> {
     super.dispose();
   }
 
+  Future<String?> _lookupRecipientUserId(String normalizedPhone) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('phoneNumber', isEqualTo: normalizedPhone)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.id;
+      }
+    } catch (_) {
+      // Ignore lookup failure gracefully
+    }
+    return null;
+  }
+
   Future<void> _saveForm() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -78,12 +96,16 @@ class _AddEditContactScreenState extends ConsumerState<AddEditContactScreen> {
       final countryCode = _countryCodeController.text.trim();
       final normalizedPhone = phoneNormalizer.normalize(rawPhone, countryCode);
 
+      // Auto-lookup matching SOZOTAP user for FCM recipient link
+      final recipientUserId = await _lookupRecipientUserId(normalizedPhone);
+
       final isEditing = widget.contact != null;
       final now = DateTime.now();
 
       final updatedContact = EmergencyContact(
         id: isEditing ? widget.contact!.id : const Uuid().v4(),
         userId: userId,
+        recipientUserId: recipientUserId ?? widget.contact?.recipientUserId,
         name: _nameController.text.trim(),
         relationship: _selectedRelationship,
         phoneNumber: normalizedPhone,
@@ -102,9 +124,14 @@ class _AddEditContactScreenState extends ConsumerState<AddEditContactScreen> {
       await ref.read(emergencyContactsProvider.notifier).save(updatedContact);
 
       if (mounted) {
+        final hasRecipient = updatedContact.recipientUserId != null;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isEditing ? 'Contact updated successfully' : 'Contact added successfully'),
+            content: Text(
+              isEditing
+                  ? 'Contact updated successfully${hasRecipient ? " (Linked for FCM Push)" : ""}'
+                  : 'Contact added successfully${hasRecipient ? " (Linked for FCM Push)" : ""}',
+            ),
             backgroundColor: Colors.green,
           ),
         );
