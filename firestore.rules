@@ -37,6 +37,11 @@ service cloud.firestore {
       match /notification_preferences/{prefId} {
         allow read, write: if isOwner(userId);
       }
+
+      // Privacy & Emergency Sharing Settings
+      match /privacy_settings/{prefId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Legacy fallback for top-level emergency_contacts if used

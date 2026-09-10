@@ -33,11 +33,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onEmergencyAlertUpdated = exports.onEmergencyAlertCreated = exports.getEmergencyQrMetadata = exports.regenerateEmergencyQr = exports.revokeEmergencyQr = exports.createEmergencyQr = exports.resolveEmergencyQr = void 0;
+exports.onEmergencyAlertUpdated = exports.onEmergencyAlertCreated = exports.deleteUserAccount = exports.getEmergencyQrMetadata = exports.regenerateEmergencyQr = exports.revokeEmergencyQr = exports.createEmergencyQr = exports.resolveEmergencyQr = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const app_1 = require("firebase-admin/app");
 const firestore_2 = require("firebase-admin/firestore");
+const auth_1 = require("firebase-admin/auth");
+const storage_1 = require("firebase-admin/storage");
 const crypto = __importStar(require("crypto"));
 const config_1 = require("./config");
 const fcm_service_1 = require("./services/fcm_service");
@@ -48,6 +50,7 @@ const logger_1 = require("./utils/logger");
 const idempotency_1 = require("./utils/idempotency");
 (0, app_1.initializeApp)();
 const db = (0, firestore_2.getFirestore)();
+const auth = (0, auth_1.getAuth)();
 const fcmService = new fcm_service_1.FcmService();
 const smsService = new sms_service_1.SmsService();
 const deliveryService = new delivery_service_1.DeliveryService();
@@ -118,12 +121,13 @@ exports.resolveEmergencyQr = (0, https_1.onCall)(async (request) => {
             throw new https_1.HttpsError("not-found", "unavailable");
         }
         const profile = profileDoc.data() || {};
+        // Authoritative check: if emergencyAccessEnabled is false, return safe disabled response
         if (profile.emergencyAccessEnabled === false) {
             logger_1.safeLogger.warn(`Emergency access disabled by profile owner ${ownerUserId}`);
             throw new https_1.HttpsError("permission-denied", "unavailable");
         }
         let emergencyContacts = [];
-        if (profile.shareContactsInEmergency !== false) {
+        if (profile.shareEmergencyContactsInEmergency !== false && profile.shareContactsInEmergency !== false) {
             const contactsSnapshot = await db
                 .collection("users")
                 .doc(ownerUserId)
@@ -157,15 +161,15 @@ exports.resolveEmergencyQr = (0, https_1.onCall)(async (request) => {
             displayEmergencyId: tokenData.displayEmergencyId,
             fullName: profile.shareNameInEmergency !== false ? profile.fullName : "Emergency Patient",
             photoUrl: profile.sharePhotoInEmergency === true ? profile.photoUrl : null,
-            bloodGroup: profile.bloodGroup || "Not Specified",
-            allergies: profile.allergies || "None reported",
-            medicalConditions: profile.medicalConditions || "None reported",
-            currentMedications: profile.currentMedications || "None reported",
-            implants: profile.implants || "None reported",
-            emergencyNotes: profile.notes || "",
+            bloodGroup: profile.shareBloodGroupInEmergency !== false ? (profile.bloodGroup || "Not Specified") : "Restricted",
+            allergies: profile.shareAllergiesInEmergency !== false ? (profile.allergies || "None reported") : "Restricted",
+            medicalConditions: profile.shareMedicalConditionsInEmergency !== false ? (profile.medicalConditions || "None reported") : "Restricted",
+            currentMedications: profile.shareMedicationsInEmergency !== false ? (profile.currentMedications || "None reported") : "Restricted",
+            implants: profile.shareImplantsInEmergency !== false ? (profile.implants || "None reported") : "Restricted",
+            emergencyNotes: profile.shareEmergencyNotesInEmergency !== false ? (profile.notes || "") : "Restricted",
             primaryDoctor: profile.shareDoctorHospitalInEmergency !== false ? profile.primaryDoctor : null,
             preferredHospital: profile.shareDoctorHospitalInEmergency !== false ? profile.preferredHospital : null,
-            hospitalAddress: profile.shareDoctorHospitalInEmergency !== false && profile.shareDirectionsInEmergency !== false
+            hospitalAddress: profile.shareDoctorHospitalInEmergency !== false && profile.shareHospitalDirectionsInEmergency !== false
                 ? profile.hospitalAddress
                 : null,
             emergencyContacts: emergencyContacts,
@@ -305,6 +309,68 @@ exports.getEmergencyQrMetadata = (0, https_1.onCall)(async (request) => {
     }
 });
 // -----------------------------------------------------------------------------
+// PROTECTED ACCOUNT DELETION CALLABLE FUNCTION (PHASE 7)
+// -----------------------------------------------------------------------------
+exports.deleteUserAccount = (0, https_1.onCall)(async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError("unauthenticated", "Authentication required.");
+    }
+    const userId = request.auth.uid;
+    logger_1.safeLogger.info(`Initiating account deletion for user ${userId}`);
+    try {
+        // 1. Revoke and delete owner QR tokens
+        const qrTokensSnapshot = await db
+            .collection("emergency_qr_tokens")
+            .where("ownerUserId", "==", userId)
+            .get();
+        const batch = db.batch();
+        qrTokensSnapshot.docs.forEach((doc) => {
+            batch.delete(doc.ref);
+        });
+        // 2. Delete medical profile
+        batch.delete(db.collection("medical_profiles").doc(userId));
+        // 3. Delete emergency contacts subcollection
+        const contactsSnapshot = await db
+            .collection("users")
+            .doc(userId)
+            .collection("emergency_contacts")
+            .get();
+        contactsSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        // 4. Delete device tokens subcollection
+        const tokensSnapshot = await db
+            .collection("users")
+            .doc(userId)
+            .collection("device_tokens")
+            .get();
+        tokensSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+        // 5. Delete notification preferences
+        const prefRef = db.collection("users").doc(userId).collection("notification_preferences").doc("settings");
+        batch.delete(prefRef);
+        // 6. Delete privacy settings
+        const privacyRef = db.collection("users").doc(userId).collection("privacy_settings").doc("settings");
+        batch.delete(privacyRef);
+        // 7. Delete user root document
+        batch.delete(db.collection("users").doc(userId));
+        await batch.commit();
+        // 8. Delete user storage files if present
+        try {
+            const bucket = (0, storage_1.getStorage)().bucket();
+            await bucket.deleteFiles({ prefix: `users/${userId}/` });
+        }
+        catch (_) {
+            // Ignore if storage files don't exist
+        }
+        // 9. Delete Firebase Auth user
+        await auth.deleteUser(userId);
+        logger_1.safeLogger.info(`Successfully completed account deletion for user ${userId}`);
+        return { success: true };
+    }
+    catch (error) {
+        logger_1.safeLogger.error(`Error deleting account for user ${userId}`, error);
+        throw new https_1.HttpsError("internal", "Failed to delete account completely.");
+    }
+});
+// -----------------------------------------------------------------------------
 // FIRESTORE TRIGGERS FOR SECURE SOS DISPATCH & NOTIFICATIONS (PHASE 6)
 // -----------------------------------------------------------------------------
 exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
@@ -327,7 +393,6 @@ exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
     }
     logger_1.safeLogger.info(`Processing emergency alert dispatch for alertId=${alertId}`);
     try {
-        // 1. Fetch owner's emergency contacts
         const contactsSnapshot = await db
             .collection("users")
             .doc(ownerUserId)
@@ -342,12 +407,8 @@ exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
         for (const contactDoc of contactsSnapshot.docs) {
             const contact = contactDoc.data();
             const contactId = contactDoc.id;
-            // ---------------------------------------------------------------------
-            // A. FCM DISPATCH LOGIC
-            // ---------------------------------------------------------------------
             if (contact.recipientUserId && contact.allowPushNotifications !== false) {
                 const recipientId = contact.recipientUserId;
-                // Check recipient push preference
                 const prefDoc = await db
                     .collection("users")
                     .doc(recipientId)
@@ -360,7 +421,6 @@ exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
                     const idempotencyKey = (0, idempotency_1.generateIdempotencyKey)(alertId, recipientId, "fcm", "create");
                     const alreadyProcessed = await deliveryService.isIdempotencyKeyProcessed(idempotencyKey);
                     if (!alreadyProcessed) {
-                        // Fetch recipient device tokens
                         const tokensSnapshot = await db
                             .collection("users")
                             .doc(recipientId)
@@ -407,7 +467,6 @@ exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
                                 });
                             }
                         }
-                        // Create inbox notification record for user
                         await notificationService.createNotification({
                             recipientUserId: recipientId,
                             senderUserId: ownerUserId,
@@ -422,9 +481,6 @@ exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
                     logger_1.safeLogger.info(`Push notifications disabled by recipient ${recipientId}`);
                 }
             }
-            // ---------------------------------------------------------------------
-            // B. SMS FALLBACK LOGIC
-            // ---------------------------------------------------------------------
             if (contact.allowSmsNotifications === true && contact.smsConsentAt && contact.phoneNumber) {
                 const smsIdempotencyKey = (0, idempotency_1.generateIdempotencyKey)(alertId, contactId, "sms", "create");
                 const alreadyProcessed = await deliveryService.isIdempotencyKeyProcessed(smsIdempotencyKey);
@@ -444,12 +500,8 @@ exports.onEmergencyAlertCreated = (0, firestore_1.onDocumentCreated)({
                 }
             }
         }
-        // -----------------------------------------------------------------------
-        // C. DISPATCH FCM BATCH
-        // -----------------------------------------------------------------------
         if (fcmPayloads.length > 0) {
             const { successCount, failureCount } = await fcmService.sendMessages(fcmPayloads);
-            // Record delivery logs for FCM attempts
             for (const payload of fcmPayloads) {
                 await deliveryService.recordDelivery({
                     alertId: alertId,
@@ -479,7 +531,6 @@ exports.onEmergencyAlertUpdated = (0, firestore_1.onDocumentUpdated)("emergency_
     if (!beforeData || !afterData)
         return;
     const alertId = event.params.alertId;
-    // Detect transition from active -> resolved or cancelled
     if (beforeData.status === "active" && (afterData.status === "resolved" || afterData.status === "cancelled")) {
         const ownerUserId = afterData.ownerUserId;
         logger_1.safeLogger.info(`SOS alert ${alertId} transitioned from active to ${afterData.status}. Dispatching resolution notifications.`);
@@ -497,7 +548,6 @@ exports.onEmergencyAlertUpdated = (0, firestore_1.onDocumentUpdated)("emergency_
                     const alreadyProcessed = await deliveryService.isIdempotencyKeyProcessed(idempotencyKey);
                     if (alreadyProcessed)
                         continue;
-                    // Create resolution inbox notification
                     await notificationService.createNotification({
                         recipientUserId: recipientId,
                         senderUserId: ownerUserId,
@@ -506,7 +556,6 @@ exports.onEmergencyAlertUpdated = (0, firestore_1.onDocumentUpdated)("emergency_
                         type: "sos_resolved",
                         alertId: alertId,
                     });
-                    // Send FCM resolution message
                     const tokensSnapshot = await db
                         .collection("users")
                         .doc(recipientId)

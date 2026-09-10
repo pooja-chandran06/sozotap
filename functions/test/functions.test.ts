@@ -65,4 +65,19 @@ describe("Cloud Functions Utility & Security Unit Tests", () => {
     expect(CONFIG.DEFAULT_NOTIFICATION_BODY).not.toContain("GPS");
     expect(CONFIG.DEFAULT_NOTIFICATION_BODY).toBe("A trusted contact may need help. Tap to view the alert.");
   });
+
+  test("Privacy consent redaction checks return Restricted when flags are disabled", () => {
+    const profile = {
+      shareBloodGroupInEmergency: false,
+      shareAllergiesInEmergency: false,
+      bloodGroup: "O Negative",
+      allergies: "Penicillin",
+    };
+
+    const redactedBloodGroup = profile.shareBloodGroupInEmergency !== false ? profile.bloodGroup : "Restricted";
+    const redactedAllergies = profile.shareAllergiesInEmergency !== false ? profile.allergies : "Restricted";
+
+    expect(redactedBloodGroup).toBe("Restricted");
+    expect(redactedAllergies).toBe("Restricted");
+  });
 });

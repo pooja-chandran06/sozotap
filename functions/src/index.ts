@@ -2,6 +2,8 @@ import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/fire
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import { getStorage } from "firebase-admin/storage";
 import { Message } from "firebase-admin/messaging";
 import * as crypto from "crypto";
 
@@ -18,6 +20,7 @@ import { EmergencyContact } from "./types";
 initializeApp();
 
 const db = getFirestore();
+const auth = getAuth();
 const fcmService = new FcmService();
 const smsService = new SmsService();
 const deliveryService = new DeliveryService();
@@ -105,13 +108,15 @@ export const resolveEmergencyQr = onCall(async (request) => {
     }
 
     const profile = profileDoc.data() || {};
+
+    // Authoritative check: if emergencyAccessEnabled is false, return safe disabled response
     if (profile.emergencyAccessEnabled === false) {
       safeLogger.warn(`Emergency access disabled by profile owner ${ownerUserId}`);
       throw new HttpsError("permission-denied", "unavailable");
     }
 
     let emergencyContacts: Array<any> = [];
-    if (profile.shareContactsInEmergency !== false) {
+    if (profile.shareEmergencyContactsInEmergency !== false && profile.shareContactsInEmergency !== false) {
       const contactsSnapshot = await db
         .collection("users")
         .doc(ownerUserId)
@@ -149,16 +154,16 @@ export const resolveEmergencyQr = onCall(async (request) => {
       displayEmergencyId: tokenData.displayEmergencyId,
       fullName: profile.shareNameInEmergency !== false ? profile.fullName : "Emergency Patient",
       photoUrl: profile.sharePhotoInEmergency === true ? profile.photoUrl : null,
-      bloodGroup: profile.bloodGroup || "Not Specified",
-      allergies: profile.allergies || "None reported",
-      medicalConditions: profile.medicalConditions || "None reported",
-      currentMedications: profile.currentMedications || "None reported",
-      implants: profile.implants || "None reported",
-      emergencyNotes: profile.notes || "",
+      bloodGroup: profile.shareBloodGroupInEmergency !== false ? (profile.bloodGroup || "Not Specified") : "Restricted",
+      allergies: profile.shareAllergiesInEmergency !== false ? (profile.allergies || "None reported") : "Restricted",
+      medicalConditions: profile.shareMedicalConditionsInEmergency !== false ? (profile.medicalConditions || "None reported") : "Restricted",
+      currentMedications: profile.shareMedicationsInEmergency !== false ? (profile.currentMedications || "None reported") : "Restricted",
+      implants: profile.shareImplantsInEmergency !== false ? (profile.implants || "None reported") : "Restricted",
+      emergencyNotes: profile.shareEmergencyNotesInEmergency !== false ? (profile.notes || "") : "Restricted",
       primaryDoctor: profile.shareDoctorHospitalInEmergency !== false ? profile.primaryDoctor : null,
       preferredHospital: profile.shareDoctorHospitalInEmergency !== false ? profile.preferredHospital : null,
       hospitalAddress:
-        profile.shareDoctorHospitalInEmergency !== false && profile.shareDirectionsInEmergency !== false
+        profile.shareDoctorHospitalInEmergency !== false && profile.shareHospitalDirectionsInEmergency !== false
           ? profile.hospitalAddress
           : null,
       emergencyContacts: emergencyContacts,
@@ -315,6 +320,81 @@ export const getEmergencyQrMetadata = onCall(async (request) => {
 });
 
 // -----------------------------------------------------------------------------
+// PROTECTED ACCOUNT DELETION CALLABLE FUNCTION (PHASE 7)
+// -----------------------------------------------------------------------------
+
+export const deleteUserAccount = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Authentication required.");
+  }
+
+  const userId = request.auth.uid;
+  safeLogger.info(`Initiating account deletion for user ${userId}`);
+
+  try {
+    // 1. Revoke and delete owner QR tokens
+    const qrTokensSnapshot = await db
+      .collection("emergency_qr_tokens")
+      .where("ownerUserId", "==", userId)
+      .get();
+
+    const batch = db.batch();
+    qrTokensSnapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    // 2. Delete medical profile
+    batch.delete(db.collection("medical_profiles").doc(userId));
+
+    // 3. Delete emergency contacts subcollection
+    const contactsSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("emergency_contacts")
+      .get();
+    contactsSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+
+    // 4. Delete device tokens subcollection
+    const tokensSnapshot = await db
+      .collection("users")
+      .doc(userId)
+      .collection("device_tokens")
+      .get();
+    tokensSnapshot.docs.forEach((doc) => batch.delete(doc.ref));
+
+    // 5. Delete notification preferences
+    const prefRef = db.collection("users").doc(userId).collection("notification_preferences").doc("settings");
+    batch.delete(prefRef);
+
+    // 6. Delete privacy settings
+    const privacyRef = db.collection("users").doc(userId).collection("privacy_settings").doc("settings");
+    batch.delete(privacyRef);
+
+    // 7. Delete user root document
+    batch.delete(db.collection("users").doc(userId));
+
+    await batch.commit();
+
+    // 8. Delete user storage files if present
+    try {
+      const bucket = getStorage().bucket();
+      await bucket.deleteFiles({ prefix: `users/${userId}/` });
+    } catch (_) {
+      // Ignore if storage files don't exist
+    }
+
+    // 9. Delete Firebase Auth user
+    await auth.deleteUser(userId);
+
+    safeLogger.info(`Successfully completed account deletion for user ${userId}`);
+    return { success: true };
+  } catch (error) {
+    safeLogger.error(`Error deleting account for user ${userId}`, error);
+    throw new HttpsError("internal", "Failed to delete account completely.");
+  }
+});
+
+// -----------------------------------------------------------------------------
 // FIRESTORE TRIGGERS FOR SECURE SOS DISPATCH & NOTIFICATIONS (PHASE 6)
 // -----------------------------------------------------------------------------
 
@@ -344,7 +424,6 @@ export const onEmergencyAlertCreated = onDocumentCreated(
     safeLogger.info(`Processing emergency alert dispatch for alertId=${alertId}`);
 
     try {
-      // 1. Fetch owner's emergency contacts
       const contactsSnapshot = await db
         .collection("users")
         .doc(ownerUserId)
@@ -363,13 +442,9 @@ export const onEmergencyAlertCreated = onDocumentCreated(
         const contact = contactDoc.data() as EmergencyContact;
         const contactId = contactDoc.id;
 
-        // ---------------------------------------------------------------------
-        // A. FCM DISPATCH LOGIC
-        // ---------------------------------------------------------------------
         if (contact.recipientUserId && contact.allowPushNotifications !== false) {
           const recipientId = contact.recipientUserId;
 
-          // Check recipient push preference
           const prefDoc = await db
             .collection("users")
             .doc(recipientId)
@@ -385,7 +460,6 @@ export const onEmergencyAlertCreated = onDocumentCreated(
             const alreadyProcessed = await deliveryService.isIdempotencyKeyProcessed(idempotencyKey);
 
             if (!alreadyProcessed) {
-              // Fetch recipient device tokens
               const tokensSnapshot = await db
                 .collection("users")
                 .doc(recipientId)
@@ -435,7 +509,6 @@ export const onEmergencyAlertCreated = onDocumentCreated(
                 }
               }
 
-              // Create inbox notification record for user
               await notificationService.createNotification({
                 recipientUserId: recipientId,
                 senderUserId: ownerUserId,
@@ -450,9 +523,6 @@ export const onEmergencyAlertCreated = onDocumentCreated(
           }
         }
 
-        // ---------------------------------------------------------------------
-        // B. SMS FALLBACK LOGIC
-        // ---------------------------------------------------------------------
         if (contact.allowSmsNotifications === true && contact.smsConsentAt && contact.phoneNumber) {
           const smsIdempotencyKey = generateIdempotencyKey(alertId, contactId, "sms", "create");
           const alreadyProcessed = await deliveryService.isIdempotencyKeyProcessed(smsIdempotencyKey);
@@ -475,13 +545,9 @@ export const onEmergencyAlertCreated = onDocumentCreated(
         }
       }
 
-      // -----------------------------------------------------------------------
-      // C. DISPATCH FCM BATCH
-      // -----------------------------------------------------------------------
       if (fcmPayloads.length > 0) {
         const { successCount, failureCount } = await fcmService.sendMessages(fcmPayloads);
 
-        // Record delivery logs for FCM attempts
         for (const payload of fcmPayloads) {
           await deliveryService.recordDelivery({
             alertId: alertId,
@@ -517,7 +583,6 @@ export const onEmergencyAlertUpdated = onDocumentUpdated(
 
     const alertId = event.params.alertId;
 
-    // Detect transition from active -> resolved or cancelled
     if (beforeData.status === "active" && (afterData.status === "resolved" || afterData.status === "cancelled")) {
       const ownerUserId = afterData.ownerUserId;
       safeLogger.info(`SOS alert ${alertId} transitioned from active to ${afterData.status}. Dispatching resolution notifications.`);
@@ -539,7 +604,6 @@ export const onEmergencyAlertUpdated = onDocumentUpdated(
             const alreadyProcessed = await deliveryService.isIdempotencyKeyProcessed(idempotencyKey);
             if (alreadyProcessed) continue;
 
-            // Create resolution inbox notification
             await notificationService.createNotification({
               recipientUserId: recipientId,
               senderUserId: ownerUserId,
@@ -549,7 +613,6 @@ export const onEmergencyAlertUpdated = onDocumentUpdated(
               alertId: alertId,
             });
 
-            // Send FCM resolution message
             const tokensSnapshot = await db
               .collection("users")
               .doc(recipientId)

@@ -19,6 +19,10 @@ import '../sos/presentation/screens/sos_alert_detail_screen.dart';
 import '../notifications/presentation/screens/notifications_screen.dart';
 import '../notifications/presentation/screens/notification_settings_screen.dart';
 import '../qr/presentation/screens/my_emergency_qr_screen.dart';
+import '../settings/presentation/screens/settings_screen.dart';
+import '../settings/presentation/screens/privacy_settings_screen.dart';
+import '../settings/presentation/screens/about_screen.dart';
+import '../settings/presentation/screens/account_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -53,6 +57,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+        routes: [
+          GoRoute(
+            path: 'privacy',
+            builder: (context, state) => const PrivacySettingsScreen(),
+          ),
+          GoRoute(
+            path: 'about',
+            builder: (context, state) => const AboutScreen(),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => const AccountScreen(),
       ),
       GoRoute(
         path: '/sos',
