@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../constants/app_colors.dart';
-import '../models/medical_profile.dart';
+import '../../domain/models/medical_profile.dart';
 import '../providers/medical_profile_provider.dart';
 
 class EmergencyConsentSettingsScreen extends ConsumerStatefulWidget {

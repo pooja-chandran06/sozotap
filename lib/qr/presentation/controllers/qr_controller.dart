@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import '../../domain/models/emergency_qr_model.dart';
-import '../../domain/repositories/emergency_alert_repository.dart';
 import '../../domain/repositories/emergency_qr_repository.dart';
 import 'qr_state.dart';
 

@@ -61,11 +61,12 @@ void main() {
     });
 
     test('stopLiveLocationTracking updates state and calls repository to disable tracking', () async {
-      final controller = SosController(mockRepo, container.listen(Provider((ref) => ref), (_, __) {}));
+      final ref = container.read(Provider((ref) => ref));
+      final controller = SosController(mockRepo, ref);
       
       await controller.stopLiveLocationTracking('test_alert_id');
 
-      expect(controller.debugState.isLiveLocationActive, isFalse);
+      expect(controller.state.isLiveLocationActive, isFalse);
       expect(mockRepo.isLiveEnabled, isFalse);
     });
   });

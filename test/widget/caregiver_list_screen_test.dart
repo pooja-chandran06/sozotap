@@ -4,13 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sozotap/caregiver/presentation/screens/caregiver_list_screen.dart';
 import 'package:sozotap/caregiver/providers/caregiver_providers.dart';
 import 'package:sozotap/caregiver/domain/repositories/caregiver_repository.dart';
+import 'package:sozotap/caregiver/domain/models/caregiver_relationship_model.dart';
 
 class MockCaregiverRepository implements CaregiverRepository {
   @override
-  Stream<List<dynamic>> watchCaregivers() => Stream.value([]);
+  Stream<List<CaregiverRelationship>> watchCaregivers() => Stream.value([]);
 
   @override
-  Future<void> inviteCaregiver(String email, dynamic permissions) async {}
+  Future<void> inviteCaregiver(String email, CaregiverPermissions permissions) async {}
 
   @override
   Future<void> acceptInvitation(String relationshipId) async {}

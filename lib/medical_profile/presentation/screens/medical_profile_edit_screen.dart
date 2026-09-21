@@ -308,7 +308,6 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
             ),
           ),
         ),
-      ),
     );
   }
 

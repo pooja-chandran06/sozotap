@@ -54,7 +54,7 @@ class AdminTemplatesScreen extends ConsumerWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.refresh),
-                onPressed: () => ref.read(templatesAdminProvider.notifier).loadTemplates(),
+                onPressed: () => ref.read(templatesAdminProvider.notifier).init(),
               ),
             ],
           ),

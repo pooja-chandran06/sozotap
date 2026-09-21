@@ -39,8 +39,8 @@ class _NfcManagementScreenState extends ConsumerState<NfcManagementScreen> {
   }
 
   Future<void> _writeNfcTag() async {
-    final qrState = ref.read(emergencyQrTokenStreamProvider).value;
-    if (qrState == null || qrState.token.isEmpty) {
+    final qrModel = ref.read(watchActiveQrMetadataProvider).value ?? ref.read(qrControllerProvider).activeMetadata;
+    if (qrModel == null || qrModel.tokenId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No active emergency QR token found to write.')),
       );
@@ -141,7 +141,7 @@ class _NfcManagementScreenState extends ConsumerState<NfcManagementScreen> {
                   child: Row(
                     children: [
                       Icon(
-                        _isNfcAvailable ? Icons.nfc_rounded : Icons.nfc_off_rounded,
+                        _isNfcAvailable ? Icons.nfc_rounded : Icons.nfc,
                         color: _isNfcAvailable ? const Color(0xFF30D158) : const Color(0xFFFF9500),
                         size: 32,
                       ),

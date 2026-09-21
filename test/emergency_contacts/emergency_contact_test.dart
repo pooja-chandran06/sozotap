@@ -20,6 +20,12 @@ class FakeEmergencyContactRepository implements EmergencyContactRepository {
   }
 
   @override
+  Future<List<EmergencyContact>> getPriorityContacts(String userId, {int limit = 5}) async {
+    final list = savedContacts.where((c) => c.userId == userId && (c.isPrimary || c.priority == 1)).toList();
+    return list.take(limit).toList();
+  }
+
+  @override
   Future<void> deleteContact(String userId, String contactId) async {
     savedContacts.removeWhere((c) => c.userId == userId && c.id == contactId);
   }

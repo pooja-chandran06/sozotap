@@ -66,7 +66,7 @@ class EmergencyContactRemoteDataSource {
 
         for (final doc in existingUserContacts.docs) {
           if (doc.id != contact.id) {
-            batch.update(doc.ref, {'isPrimary': false});
+            batch.update(doc.reference, {'isPrimary': false});
             batch.update(_firestore.collection('emergency_contacts').doc(doc.id), {'isPrimary': false});
           }
         }

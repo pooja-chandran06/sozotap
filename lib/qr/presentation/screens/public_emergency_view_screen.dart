@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../config/app_config.dart';
 import '../../../constants/app_colors.dart';
-import '../domain/models/public_emergency_dto.dart';
+import '../../domain/models/public_emergency_dto.dart';
 
 class PublicEmergencyViewScreen extends StatelessWidget {
   final PublicEmergencyDto dto;

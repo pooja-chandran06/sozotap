@@ -145,7 +145,7 @@ class _AdminTemplateEditorScreenState extends ConsumerState<AdminTemplateEditorS
 
         await repo.saveTemplate(
           doc,
-          ref.read(templatesAdminNotifierProviderUserId),
+          ref.read(templatesAdminNotifierUserIdProvider),
           adminState.userRole,
           isRestoration: widget.isRestoration,
           restoredFromAuditLogId: widget.restoreId,

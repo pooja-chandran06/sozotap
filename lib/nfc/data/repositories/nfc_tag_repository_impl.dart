@@ -43,7 +43,7 @@ class NfcTagRepositoryImpl implements NfcTagRepository {
             return;
           }
 
-          final UriRecord uriRecord = UriRecord.fromUri(Uri.parse(targetUrl));
+          final NdefRecord uriRecord = NdefRecord.createUri(Uri.parse(targetUrl));
           final NdefMessage message = NdefMessage([uriRecord]);
 
           if (ndef.maxSize < message.byteLength) {

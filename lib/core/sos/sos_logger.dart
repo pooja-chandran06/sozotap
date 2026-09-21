@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../emergency_contacts/domain/models/emergency_contact.dart';
 import '../../utils/logger.dart';
 import 'sos_orchestrator.dart';
+import 'dispatch_service.dart';
 
 class SosLogger {
   final FirebaseFirestore _firestore;

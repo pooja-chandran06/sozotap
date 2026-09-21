@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sozotap/sos/domain/models/emergency_alert_model.dart';
 import 'package:sozotap/sos/domain/repositories/emergency_alert_repository.dart';
 import 'package:sozotap/sos/presentation/controllers/sos_controller.dart';
-import 'package:sozotap/sos/presentation/controllers/sos_state.dart';
 
 class FakeEmergencyAlertRepository implements EmergencyAlertRepository {
   final Map<String, EmergencyAlertModel> _alerts = {};
@@ -31,6 +30,21 @@ class FakeEmergencyAlertRepository implements EmergencyAlertRepository {
   }
 
   @override
+  Future<void> updateLiveLocation({
+    required String alertId,
+    required double latitude,
+    required double longitude,
+    required double accuracyMeters,
+    required DateTime capturedAt,
+  }) async {}
+
+  @override
+  Future<void> setLiveLocationEnabled({
+    required String alertId,
+    required bool enabled,
+  }) async {}
+
+  @override
   Stream<EmergencyAlertModel?> watchAlert(String alertId) {
     return Stream.value(_alerts[alertId]);
   }
@@ -56,30 +70,33 @@ void main() {
     });
 
     test('Initial state is idle with 5 seconds countdown', () {
-      final controller = SosController(fakeRepository, container.listen(Provider((ref) => ref), (_, __) {}));
-      expect(controller.debugState.countdownSeconds, 5);
-      expect(controller.debugState.isCountingDown, false);
-      expect(controller.debugState.isActivating, false);
-      expect(controller.debugState.activeAlertId, null);
+      final ref = container.read(Provider((ref) => ref));
+      final controller = SosController(fakeRepository, ref);
+      expect(controller.state.countdownSeconds, 5);
+      expect(controller.state.isCountingDown, false);
+      expect(controller.state.isActivating, false);
+      expect(controller.state.activeAlertId, null);
     });
 
     test('startCountdown sets isCountingDown true and initializes timer', () {
-      final controller = SosController(fakeRepository, container.listen(Provider((ref) => ref), (_, __) {}));
+      final ref = container.read(Provider((ref) => ref));
+      final controller = SosController(fakeRepository, ref);
       controller.startCountdown();
 
-      expect(controller.debugState.isCountingDown, true);
-      expect(controller.debugState.countdownSeconds, 5);
+      expect(controller.state.isCountingDown, true);
+      expect(controller.state.countdownSeconds, 5);
       controller.cancelCountdown();
     });
 
     test('cancelCountdown resets countdown state completely', () {
-      final controller = SosController(fakeRepository, container.listen(Provider((ref) => ref), (_, __) {}));
+      final ref = container.read(Provider((ref) => ref));
+      final controller = SosController(fakeRepository, ref);
       controller.startCountdown();
       controller.cancelCountdown();
 
-      expect(controller.debugState.isCountingDown, false);
-      expect(controller.debugState.countdownSeconds, 5);
-      expect(controller.debugState.activeAlertId, null);
+      expect(controller.state.isCountingDown, false);
+      expect(controller.state.countdownSeconds, 5);
+      expect(controller.state.activeAlertId, null);
     });
   });
 }

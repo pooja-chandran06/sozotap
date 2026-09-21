@@ -19,6 +19,21 @@ class MockEmergencyAlertRepository implements EmergencyAlertRepository {
   }) async {}
 
   @override
+  Future<void> updateLiveLocation({
+    required String alertId,
+    required double latitude,
+    required double longitude,
+    required double accuracyMeters,
+    required DateTime capturedAt,
+  }) async {}
+
+  @override
+  Future<void> setLiveLocationEnabled({
+    required String alertId,
+    required bool enabled,
+  }) async {}
+
+  @override
   Stream<EmergencyAlertModel?> watchAlert(String alertId) => Stream.value(null);
 
   @override
