@@ -40,13 +40,15 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   File? _imageFile;
   String? _existingPhotoUrl;
   bool _isUploadingPhoto = false;
+  bool _isSaving = false;
+  bool _hasInitialPopulated = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profile = ref.read(medicalProfileProvider).value;
-      if (profile != null) {
+      if (profile != null && !_hasInitialPopulated) {
         _populateFields(profile);
       }
     });
@@ -69,11 +71,14 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     _hospitalCtrl.text = profile.preferredHospital;
     _notesCtrl.text = profile.notes;
     
-    setState(() {
-      _isPregnant = profile.isPregnant;
-      _isOrganDonor = profile.isOrganDonor;
-      _existingPhotoUrl = profile.photoUrl;
-    });
+    if (mounted) {
+      setState(() {
+        _isPregnant = profile.isPregnant;
+        _isOrganDonor = profile.isOrganDonor;
+        _existingPhotoUrl = profile.photoUrl;
+        _hasInitialPopulated = true;
+      });
+    }
   }
 
   @override
@@ -110,58 +115,96 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     if (!_formKey.currentState!.validate()) return;
     
     final user = ref.read(authStateProvider).value;
-    if (user == null) return;
-
-    String? photoUrl = _existingPhotoUrl;
-
-    if (_imageFile != null) {
-      setState(() => _isUploadingPhoto = true);
-      try {
-        photoUrl = await ref.read(medicalProfileProvider.notifier).uploadPhoto(_imageFile!);
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
-        }
-        setState(() => _isUploadingPhoto = false);
-        return;
-      }
-      setState(() => _isUploadingPhoto = false);
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User session not found. Please log in again.'), backgroundColor: Colors.red),
+      );
+      return;
     }
 
-    final profile = MedicalProfile(
-      uid: user.id,
-      photoUrl: photoUrl,
-      fullName: _fullNameCtrl.text.trim(),
-      age: int.tryParse(_ageCtrl.text) ?? 0,
-      gender: _genderCtrl.text.trim(),
-      bloodGroup: _bloodGroupCtrl.text.trim(),
-      heightCm: double.tryParse(_heightCtrl.text) ?? 0.0,
-      weightKg: double.tryParse(_weightCtrl.text) ?? 0.0,
-      medicalConditions: _conditionsCtrl.text.trim(),
-      allergies: _allergiesCtrl.text.trim(),
-      currentMedications: _medicationsCtrl.text.trim(),
-      pastSurgeries: _surgeriesCtrl.text.trim(),
-      implants: _implantsCtrl.text.trim(),
-      isPregnant: _isPregnant,
-      isOrganDonor: _isOrganDonor,
-      insuranceInfo: _insuranceCtrl.text.trim(),
-      primaryDoctor: _doctorCtrl.text.trim(),
-      preferredHospital: _hospitalCtrl.text.trim(),
-      notes: _notesCtrl.text.trim(),
-    );
+    setState(() => _isSaving = true);
 
-    await ref.read(medicalProfileProvider.notifier).saveProfile(profile);
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile saved securely.'), backgroundColor: Colors.green));
-      context.pop();
+    try {
+      String? photoUrl = _existingPhotoUrl;
+
+      if (_imageFile != null) {
+        setState(() => _isUploadingPhoto = true);
+        try {
+          photoUrl = await ref.read(medicalProfileProvider.notifier).uploadPhoto(_imageFile!);
+        } finally {
+          if (mounted) setState(() => _isUploadingPhoto = false);
+        }
+      }
+
+      final currentProfile = ref.read(medicalProfileProvider).value;
+
+      final profile = MedicalProfile(
+        uid: user.id,
+        photoUrl: photoUrl,
+        fullName: _fullNameCtrl.text.trim(),
+        age: int.tryParse(_ageCtrl.text) ?? 0,
+        gender: _genderCtrl.text.trim(),
+        bloodGroup: _bloodGroupCtrl.text.trim(),
+        heightCm: double.tryParse(_heightCtrl.text) ?? 0.0,
+        weightKg: double.tryParse(_weightCtrl.text) ?? 0.0,
+        medicalConditions: _conditionsCtrl.text.trim(),
+        allergies: _allergiesCtrl.text.trim(),
+        currentMedications: _medicationsCtrl.text.trim(),
+        pastSurgeries: _surgeriesCtrl.text.trim(),
+        implants: _implantsCtrl.text.trim(),
+        isPregnant: _isPregnant,
+        isOrganDonor: _isOrganDonor,
+        insuranceInfo: _insuranceCtrl.text.trim(),
+        primaryDoctor: _doctorCtrl.text.trim(),
+        preferredHospital: _hospitalCtrl.text.trim(),
+        notes: _notesCtrl.text.trim(),
+        emergencyAccessEnabled: currentProfile?.emergencyAccessEnabled ?? true,
+        sharePhotoInEmergency: currentProfile?.sharePhotoInEmergency ?? false,
+        shareNameInEmergency: currentProfile?.shareNameInEmergency ?? true,
+        shareDoctorHospitalInEmergency: currentProfile?.shareDoctorHospitalInEmergency ?? true,
+        shareContactsInEmergency: currentProfile?.shareContactsInEmergency ?? true,
+        shareDirectionsInEmergency: currentProfile?.shareDirectionsInEmergency ?? true,
+        hospitalAddress: currentProfile?.hospitalAddress,
+        emergencyVisibleFieldsVersion: currentProfile?.emergencyVisibleFieldsVersion ?? 1,
+        lastEmergencyProfileUpdateAt: DateTime.now(),
+      );
+
+      await ref.read(medicalProfileProvider.notifier).saveProfile(profile);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile saved securely.'), backgroundColor: Colors.green),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save profile: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<MedicalProfile?>>(medicalProfileProvider, (previous, next) {
+      next.whenData((profile) {
+        if (profile != null && !_hasInitialPopulated) {
+          _populateFields(profile);
+        }
+      });
+    });
+
     final profileState = ref.watch(medicalProfileProvider);
-    final isLoading = profileState.isLoading || _isUploadingPhoto;
+    final isLoading = _isSaving || _isUploadingPhoto;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -171,10 +214,11 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: profileState.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('Error loading profile: $e')),
-          data: (_) => SingleChildScrollView(
+        child: (profileState.isLoading && !_hasInitialPopulated && !_isSaving)
+            ? const Center(child: CircularProgressIndicator())
+            : profileState.hasError && !_hasInitialPopulated && !_isSaving
+                ? Center(child: Text('Error loading profile: ${profileState.error}'))
+                : SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(
               key: _formKey,

@@ -28,6 +28,7 @@ import '../iot/presentation/screens/device_management_screen.dart';
 import '../iot/presentation/screens/ble_pairing_screen.dart';
 import '../caregiver/presentation/screens/caregiver_list_screen.dart';
 import '../caregiver/presentation/screens/invite_caregiver_screen.dart';
+import '../medical_profile/presentation/screens/medical_profile_edit_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -104,6 +105,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/account',
         builder: (context, state) => const AccountScreen(),
+      ),
+      GoRoute(
+        path: '/medical-profile',
+        builder: (context, state) => const MedicalProfileEditScreen(),
       ),
       GoRoute(
         path: '/sos',

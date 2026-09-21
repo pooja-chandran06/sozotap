@@ -47,12 +47,13 @@ class MedicalProfileController extends StateNotifier<AsyncValue<MedicalProfile?>
   }
 
   Future<void> saveProfile(MedicalProfile profile) async {
-    state = const AsyncValue.loading();
+    final previousState = state;
     try {
       await _repository.saveProfile(profile);
       state = AsyncValue.data(profile);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = previousState;
+      rethrow;
     }
   }
 

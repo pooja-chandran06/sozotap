@@ -201,7 +201,17 @@ class MedicalProfile {
     );
   }
 
-  String toJson() => json.encode(toMap());
+  Map<String, dynamic> toJsonMap() {
+    final map = toMap();
+    if (map['lastEmergencyProfileUpdateAt'] is Timestamp) {
+      map['lastEmergencyProfileUpdateAt'] = (map['lastEmergencyProfileUpdateAt'] as Timestamp).toDate().toIso8601String();
+    } else if (lastEmergencyProfileUpdateAt != null) {
+      map['lastEmergencyProfileUpdateAt'] = lastEmergencyProfileUpdateAt!.toIso8601String();
+    }
+    return map;
+  }
+
+  String toJson() => json.encode(toJsonMap());
 
   factory MedicalProfile.fromJson(String source) => MedicalProfile.fromMap(json.decode(source) as Map<String, dynamic>);
 }
