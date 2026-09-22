@@ -54,7 +54,7 @@ class _NfcManagementScreenState extends ConsumerState<NfcManagementScreen> {
 
     try {
       final repo = ref.read(nfcRepositoryProvider);
-      await repo.writeEmergencyTokenTag(qrState.token);
+      await repo.writeEmergencyTokenTag(qrModel.tokenId);
       if (mounted) {
         setState(() {
           _statusMessage = 'NFC SmartTag written successfully!';

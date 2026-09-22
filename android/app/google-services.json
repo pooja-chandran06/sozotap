@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "628751053379",
+    "project_id": "sozotap",
+    "storage_bucket": "sozotap.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:628751053379:android:0900f9a09482e27e0cdaf6",
+        "android_client_info": {
+          "package_name": "com.sozotap.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCCaQ14ez5zu9T5r9mLA2cSJ9skjuWxSVM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -28,7 +28,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.signInWithEmail(email, password);
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Sign in error', e, st);
+      AppLogger.e('Sign in error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }
@@ -39,7 +39,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.registerWithEmail(email, password, displayName);
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Register error', e, st);
+      AppLogger.e('Register error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }
@@ -50,7 +50,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.signInWithGoogle();
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Google sign in error', e, st);
+      AppLogger.e('Google sign in error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }
@@ -61,7 +61,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.resetPassword(email);
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Reset password error', e, st);
+      AppLogger.e('Reset password error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }
@@ -72,7 +72,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.sendEmailVerification();
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Email verification error', e, st);
+      AppLogger.e('Email verification error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }
@@ -83,7 +83,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.reloadUser();
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Reload user error', e, st);
+      AppLogger.e('Reload user error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }
@@ -94,7 +94,7 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
       await _authRepository.signOut();
       state = const AsyncValue.data(null);
     } catch (e, st) {
-      AppLogger.e('Sign out error', e, st);
+      AppLogger.e('Sign out error: $e', e, st);
       state = AsyncValue.error(AuthErrorMapper.getMessage(e), st);
     }
   }

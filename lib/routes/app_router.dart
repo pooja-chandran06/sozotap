@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,13 +33,32 @@ import '../medical_profile/presentation/screens/medical_profile_edit_screen.dart
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
+class GoRouterRefreshStream extends ChangeNotifier {
+  late final StreamSubscription<dynamic> _subscription;
+
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen(
+      (dynamic _) => notifyListeners(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
+  final authRepository = ref.watch(authRepositoryProvider);
   final authState = ref.watch(authStateProvider);
   final hasCompletedOnboarding = ref.watch(onboardingProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/splash',
+    refreshListenable: GoRouterRefreshStream(authRepository.authStateChanges),
     routes: [
       GoRoute(
         path: '/splash',
@@ -177,21 +197,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         return isOnboarding ? null : '/onboarding';
       }
 
-      return authState.when(
-        data: (user) {
-          if (user == null) {
-            return isLoggingIn ? null : '/login';
-          }
+      final user = authState.value ?? authRepository.currentUser;
 
-          if (isLoggingIn || isSplash || isOnboarding) {
-            return '/';
-          }
+      if (user == null) {
+        return isLoggingIn ? null : '/login';
+      }
 
-          return null;
-        },
-        loading: () => isSplash ? null : '/splash',
-        error: (_, __) => isLoggingIn ? null : '/login',
-      );
+      if (isLoggingIn || isSplash || isOnboarding) {
+        return '/';
+      }
+
+      return null;
     },
   );
 });
