@@ -47,9 +47,16 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final profile = ref.read(medicalProfileProvider).value;
-      if (profile != null && !_hasInitialPopulated) {
-        _populateFields(profile);
+      final profileState = ref.read(medicalProfileProvider);
+      if (profileState.hasValue) {
+        if (mounted && !_hasInitialPopulated) {
+          setState(() {
+            _hasInitialPopulated = true;
+          });
+        }
+        if (profileState.value != null) {
+          _populateFields(profileState.value!);
+        }
       }
     });
   }
@@ -196,11 +203,16 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MedicalProfile?>>(medicalProfileProvider, (previous, next) {
-      next.whenData((profile) {
-        if (profile != null && !_hasInitialPopulated) {
-          _populateFields(profile);
+      if (next.hasValue) {
+        if (mounted && !_hasInitialPopulated) {
+          setState(() {
+            _hasInitialPopulated = true;
+          });
         }
-      });
+        if (next.value != null) {
+          _populateFields(next.value!);
+        }
+      }
     });
 
     final profileState = ref.watch(medicalProfileProvider);
@@ -215,9 +227,51 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
       ),
       body: SafeArea(
         child: (profileState.isLoading && !_hasInitialPopulated && !_isSaving)
-            ? const Center(child: CircularProgressIndicator())
-            : profileState.hasError && !_hasInitialPopulated && !_isSaving
-                ? Center(child: Text('Error loading profile: ${profileState.error}'))
+            ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Loading Medical Profile...'),
+                  ],
+                ),
+              )
+            : (profileState.hasError && !_hasInitialPopulated && !_isSaving)
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline, size: 60, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load profile',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            profileState.error.toString().replaceAll('Exception: ', ''),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey[700]),
+                          ),
+                          const SizedBox(height: 24),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              ref.read(medicalProfileProvider.notifier).loadProfile();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
                 : SingleChildScrollView(
             padding: const EdgeInsets.all(24.0),
             child: Form(

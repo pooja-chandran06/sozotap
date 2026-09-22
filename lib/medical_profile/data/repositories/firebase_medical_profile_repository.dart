@@ -22,16 +22,25 @@ class FirebaseMedicalProfileRepository implements MedicalProfileRepository {
   @override
   Future<MedicalProfile?> getProfile(String uid) async {
     try {
-      final doc = await _firestore.collection('medical_profiles').doc(uid).get().timeout(const Duration(seconds: 10));
+      final doc = await _firestore
+          .collection('medical_profiles')
+          .doc(uid)
+          .get()
+          .timeout(const Duration(seconds: 5));
       if (doc.exists && doc.data() != null) {
         final profile = MedicalProfile.fromMap(doc.data()!);
         await _cacheService.cacheProfile(profile);
         return profile;
       }
+      return null;
     } catch (e, st) {
-      AppLogger.e('Failed to fetch profile from Firestore, falling back to cache', e, st);
+      AppLogger.e('Failed to fetch profile from Firestore, checking cache', e, st);
+      final cached = _cacheService.getCachedProfile(uid);
+      if (cached != null) {
+        return cached;
+      }
+      rethrow;
     }
-    return _cacheService.getCachedProfile(uid);
   }
 
   @override

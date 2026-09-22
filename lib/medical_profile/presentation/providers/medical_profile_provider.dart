@@ -36,7 +36,10 @@ class MedicalProfileController extends StateNotifier<AsyncValue<MedicalProfile?>
   }
 
   Future<void> loadProfile() async {
-    if (_uid.isEmpty) return;
+    if (_uid.isEmpty) {
+      state = const AsyncValue.data(null);
+      return;
+    }
     state = const AsyncValue.loading();
     try {
       final profile = await _repository.getProfile(_uid);

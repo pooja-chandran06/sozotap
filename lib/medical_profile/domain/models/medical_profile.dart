@@ -169,34 +169,67 @@ class MedicalProfile {
       return null;
     }
 
+    int parseInt(dynamic val) {
+      if (val == null) return 0;
+      if (val is num) return val.toInt();
+      if (val is String) return int.tryParse(val) ?? 0;
+      return 0;
+    }
+
+    double parseDouble(dynamic val) {
+      if (val == null) return 0.0;
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val) ?? 0.0;
+      return 0.0;
+    }
+
+    bool parseBool(dynamic val, {bool defaultValue = false}) {
+      if (val == null) return defaultValue;
+      if (val is bool) return val;
+      if (val is String) {
+        final lower = val.toLowerCase();
+        if (lower == 'true' || lower == '1') return true;
+        if (lower == 'false' || lower == '0') return false;
+      }
+      if (val is num) return val != 0;
+      return defaultValue;
+    }
+
+    String parseString(dynamic val) {
+      if (val == null) return '';
+      return val.toString();
+    }
+
+    final emergencyVer = parseInt(map['emergencyVisibleFieldsVersion']);
+
     return MedicalProfile(
-      uid: map['uid'] as String? ?? '',
+      uid: parseString(map['uid']),
       photoUrl: map['photoUrl'] as String?,
-      fullName: map['fullName'] as String? ?? '',
-      age: (map['age'] as num?)?.toInt() ?? 0,
-      gender: map['gender'] as String? ?? '',
-      bloodGroup: map['bloodGroup'] as String? ?? '',
-      heightCm: (map['heightCm'] as num?)?.toDouble() ?? 0.0,
-      weightKg: (map['weightKg'] as num?)?.toDouble() ?? 0.0,
-      medicalConditions: map['medicalConditions'] as String? ?? '',
-      allergies: map['allergies'] as String? ?? '',
-      currentMedications: map['currentMedications'] as String? ?? '',
-      pastSurgeries: map['pastSurgeries'] as String? ?? '',
-      implants: map['implants'] as String? ?? '',
-      isPregnant: map['isPregnant'] as bool? ?? false,
-      isOrganDonor: map['isOrganDonor'] as bool? ?? false,
-      insuranceInfo: map['insuranceInfo'] as String? ?? '',
-      primaryDoctor: map['primaryDoctor'] as String? ?? '',
-      preferredHospital: map['preferredHospital'] as String? ?? '',
-      notes: map['notes'] as String? ?? '',
-      emergencyAccessEnabled: map['emergencyAccessEnabled'] as bool? ?? true,
-      sharePhotoInEmergency: map['sharePhotoInEmergency'] as bool? ?? false,
-      shareNameInEmergency: map['shareNameInEmergency'] as bool? ?? true,
-      shareDoctorHospitalInEmergency: map['shareDoctorHospitalInEmergency'] as bool? ?? true,
-      shareContactsInEmergency: map['shareContactsInEmergency'] as bool? ?? true,
-      shareDirectionsInEmergency: map['shareDirectionsInEmergency'] as bool? ?? true,
+      fullName: parseString(map['fullName']),
+      age: parseInt(map['age']),
+      gender: parseString(map['gender']),
+      bloodGroup: parseString(map['bloodGroup']),
+      heightCm: parseDouble(map['heightCm']),
+      weightKg: parseDouble(map['weightKg']),
+      medicalConditions: parseString(map['medicalConditions']),
+      allergies: parseString(map['allergies']),
+      currentMedications: parseString(map['currentMedications']),
+      pastSurgeries: parseString(map['pastSurgeries']),
+      implants: parseString(map['implants']),
+      isPregnant: parseBool(map['isPregnant'], defaultValue: false),
+      isOrganDonor: parseBool(map['isOrganDonor'], defaultValue: false),
+      insuranceInfo: parseString(map['insuranceInfo']),
+      primaryDoctor: parseString(map['primaryDoctor']),
+      preferredHospital: parseString(map['preferredHospital']),
+      notes: parseString(map['notes']),
+      emergencyAccessEnabled: parseBool(map['emergencyAccessEnabled'], defaultValue: true),
+      sharePhotoInEmergency: parseBool(map['sharePhotoInEmergency'], defaultValue: false),
+      shareNameInEmergency: parseBool(map['shareNameInEmergency'], defaultValue: true),
+      shareDoctorHospitalInEmergency: parseBool(map['shareDoctorHospitalInEmergency'], defaultValue: true),
+      shareContactsInEmergency: parseBool(map['shareContactsInEmergency'], defaultValue: true),
+      shareDirectionsInEmergency: parseBool(map['shareDirectionsInEmergency'], defaultValue: true),
       hospitalAddress: map['hospitalAddress'] as String?,
-      emergencyVisibleFieldsVersion: (map['emergencyVisibleFieldsVersion'] as num?)?.toInt() ?? 1,
+      emergencyVisibleFieldsVersion: emergencyVer == 0 ? 1 : emergencyVer,
       lastEmergencyProfileUpdateAt: parseDate(map['lastEmergencyProfileUpdateAt']),
     );
   }
