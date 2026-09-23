@@ -1,28 +1,37 @@
-import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../domain/models/medical_profile.dart';
-import '../../domain/repositories/medical_profile_repository.dart';
-import '../datasources/medical_profile_remote_datasource.dart';
-import '../models/medical_profile_dto.dart';
 
-class MedicalProfileRepositoryImpl implements MedicalProfileRepository {
-  final MedicalProfileRemoteDatasource _remoteDatasource;
+class MedicalProfileCacheService {
+  final SharedPreferences _prefs;
 
-  MedicalProfileRepositoryImpl(this._remoteDatasource);
+  MedicalProfileCacheService(this._prefs);
 
-  @override
-  Future<MedicalProfile?> getProfile(String uid) async {
-    final dto = await _remoteDatasource.getProfile(uid);
-    return dto?.toDomain();
+  Future<void> cacheProfile(MedicalProfile profile) async {
+    final key = 'medical_profile_${profile.uid}';
+
+    try {
+      final json = profile.toJson();
+
+      await _prefs
+          .setString(key, json)
+          .timeout(const Duration(seconds: 5));
+    } catch (_) {
+      // Local cache is optional.
+      // Firestore remains the main source of truth.
+    }
   }
 
-  @override
-  Future<void> saveProfile(MedicalProfile profile) async {
-    final dto = MedicalProfileDto.fromDomain(profile);
-    await _remoteDatasource.saveProfile(dto);
-  }
+  MedicalProfile? getCachedProfile(String uid) {
+    try {
+      final data = _prefs.getString('medical_profile_$uid');
 
-  @override
-  Future<String?> uploadProfilePhoto(String uid, File imageFile) async {
-    return await _remoteDatasource.uploadProfilePhoto(uid, imageFile);
+      if (data == null || data.isEmpty) {
+        return null;
+      }
+
+      return MedicalProfile.fromJson(data);
+    } catch (_) {
+      return null;
+    }
   }
 }

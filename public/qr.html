@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SOZOTAP — Emergency Medical Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Firebase SDK Compat libraries -->
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    :root {
+      --primary: #D32F2F;
+      --primary-dark: #9A0007;
+      --bg: #0F172A;
+      --card-bg: #1E293B;
+      --card-border: #334155;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --accent: #FF5252;
+      --success: #10B981;
+      --warning: #F59E0B;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .wrapper {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .header-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--card-bg);
+      padding: 16px 20px;
+      border-radius: 16px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 16px;
+    }
+
+    .brand-title {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 900;
+      font-size: 20px;
+      letter-spacing: 1.2px;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-sec {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      letter-spacing: 0.5px;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      margin-bottom: 16px;
+    }
+
+    .patient-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--card-border);
+      margin-bottom: 20px;
+    }
+
+    .patient-avatar {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: rgba(211, 47, 47, 0.2);
+      border: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      color: #FFF;
+      object-fit: cover;
+    }
+
+    .patient-info h2 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: #FFF;
+    }
+
+    .emergency-id-tag {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600;
+      letter-spacing: 1px;
+      margin-top: 2px;
+    }
+
+    .blood-group-banner {
+      background: linear-gradient(135deg, #D32F2F 0%, #9A0007 100%);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      color: #FFF;
+    }
+
+    .blood-group-label {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .blood-group-value {
+      font-family: 'Poppins', sans-serif;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 1px;
+    }
+
+    .section-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .info-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .info-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .info-val {
+      font-size: 15px;
+      font-weight: 600;
+      color: #FFF;
+      word-break: break-word;
+    }
+
+    .contact-card {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .contact-details h4 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #FFF;
+    }
+
+    .contact-details p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .call-btn {
+      background: var(--success);
+      color: #FFF;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .error-card {
+      text-align: center;
+      padding: 40px 20px;
+    }
+
+    .error-icon {
+      font-size: 56px;
+      color: var(--primary);
+      margin-bottom: 16px;
+    }
+
+    .error-title {
+      font-family: 'Poppins', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFF;
+      margin-bottom: 8px;
+    }
+
+    .error-msg {
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(211, 47, 47, 0.2);
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="header-bar">
+    <div class="brand-title">🆘 SOZOTAP</div>
+    <div class="badge-sec">EMERGENCY RESPONSE</div>
+  </div>
+
+  <div id="loadingState" class="card loading-spinner">
+    <div class="spinner"></div>
+    <div style="font-weight:700; color:#FFF;">Verifying Emergency Key...</div>
+  </div>
+
+  <div id="errorState" class="card error-card" style="display:none;">
+    <div class="error-icon">⚠️</div>
+    <div class="error-title" id="errorTitle">Invalid Emergency QR Code</div>
+    <div class="error-msg" id="errorMsg">This emergency QR code is either invalid, revoked, or expired.</div>
+  </div>
+
+  <div id="contentState" style="display:none;">
+    <div class="card">
+      <div class="patient-header">
+        <div id="patientAvatarContainer">
+          <div class="patient-avatar">👤</div>
+        </div>
+        <div class="patient-info">
+          <h2 id="patientName">Emergency Patient</h2>
+          <div class="emergency-id-tag" id="emergencyIdTag">ST-0000-0000</div>
+        </div>
+      </div>
+
+      <div class="blood-group-banner">
+        <div>
+          <div class="blood-group-label">Blood Group</div>
+          <div style="font-size: 11px; opacity: 0.8;">Emergency Field</div>
+        </div>
+        <div class="blood-group-value" id="bloodGroup">--</div>
+      </div>
+
+      <div class="section-title">Critical Medical Information</div>
+      <div class="info-grid">
+        <div class="info-box">
+          <div class="info-label">Allergies</div>
+          <div class="info-val" id="allergies">None reported</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">Medical Conditions</div>
+          <div class="info-val" id="medicalConditions">None reported</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">Current Medications</div>
+          <div class="info-val" id="medications">None reported</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">Medical Implants / Devices</div>
+          <div class="info-val" id="implants">None reported</div>
+        </div>
+        <div class="info-box">
+          <div class="info-label">Emergency Notes</div>
+          <div class="info-val" id="emergencyNotes">None provided</div>
+        </div>
+      </div>
+
+      <div id="doctorHospitalSection" style="display:none;">
+        <div class="section-title">Primary Care & Preferred Hospital</div>
+        <div class="info-grid">
+          <div class="info-box" id="doctorBox">
+            <div class="info-label">Primary Doctor</div>
+            <div class="info-val" id="primaryDoctor">--</div>
+          </div>
+          <div class="info-box" id="hospitalBox">
+            <div class="info-label">Preferred Hospital</div>
+            <div class="info-val" id="preferredHospital">--</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="contactsSection" style="display:none;">
+        <div class="section-title" style="margin-top: 8px;">Emergency Contacts</div>
+        <div id="contactsList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Firebase Configuration for SOZOTAP
+  const firebaseConfig = {
+    apiKey: "AIzaSyCCaQ14ez5zu9T5r9mLA2cSJ9skjuWxSVM",
+    authDomain: "sozotap.firebaseapp.com",
+    projectId: "sozotap",
+    storageBucket: "sozotap.firebasestorage.app",
+    messagingSenderId: "628751053379",
+    appId: "1:628751053379:web:0900f9a09482e27e0cdaf6"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+
+  async function sha256Hash(str) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str.trim());
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function getRawTokenFromUrl() {
+    const path = window.location.pathname;
+    if (path.includes('/emergency/')) {
+      const parts = path.split('/emergency/');
+      const token = parts[parts.length - 1];
+      if (token && token.trim() !== '') return token.trim();
+    }
+    if (path.includes('/qr/')) {
+      const parts = path.split('/qr/');
+      const token = parts[parts.length - 1];
+      if (token && token.trim() !== '') return token.trim();
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('token')) return params.get('token').trim();
+    return null;
+  }
+
+  function showError(title, message) {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('contentState').style.display = 'none';
+    document.getElementById('errorTitle').innerText = title;
+    document.getElementById('errorMsg').innerText = message;
+    document.getElementById('errorState').style.display = 'block';
+  }
+
+  async function resolveQrToken() {
+    const rawToken = getRawTokenFromUrl();
+    if (!rawToken) {
+      showError('No Token Provided', 'The emergency QR URL does not contain a valid token.');
+      return;
+    }
+
+    try {
+      let tokenQuerySnapshot;
+      if (rawToken.startsWith('ST-')) {
+        tokenQuerySnapshot = await db.collection('emergency_qr_tokens')
+          .where('displayEmergencyId', '==', rawToken)
+          .where('status', '==', 'active')
+          .limit(1)
+          .get();
+      } else {
+        const tokenHash = await sha256Hash(rawToken);
+        tokenQuerySnapshot = await db.collection('emergency_qr_tokens')
+          .where('tokenHash', '==', tokenHash)
+          .where('status', '==', 'active')
+          .limit(1)
+          .get();
+      }
+
+      if (tokenQuerySnapshot.empty) {
+        showError('Invalid Emergency QR', 'This emergency QR key was not found or is no longer active.');
+        return;
+      }
+
+      const tokenDoc = tokenQuerySnapshot.docs[0];
+      const tokenData = tokenDoc.data();
+
+      if (tokenData.status === 'revoked') {
+        showError('Revoked Emergency QR', 'This emergency QR code has been revoked by the patient.');
+        return;
+      }
+
+      if (tokenData.expiresAt && tokenData.expiresAt.toDate() < new Date()) {
+        showError('Expired Emergency QR', 'This emergency QR code expired and is no longer valid.');
+        return;
+      }
+
+      const ownerUserId = tokenData.ownerUserId;
+      if (!ownerUserId) {
+        showError('Invalid Profile Pointer', 'This emergency QR is not linked to a user profile.');
+        return;
+      }
+
+      // Record scan audit count
+      tokenDoc.ref.update({
+        scanCount: firebase.firestore.FieldValue.increment(1),
+        lastScannedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch(e => console.log('Audit update log', e));
+
+      // Read owner medical profile
+      const profileDoc = await db.collection('medical_profiles').doc(ownerUserId).get();
+      if (!profileDoc.exists) {
+        showError('Profile Unavailable', 'The medical profile associated with this QR code could not be found.');
+        return;
+      }
+
+      const profile = profileDoc.data();
+
+      if (profile.emergencyAccessEnabled === false) {
+        showError('Emergency Access Disabled', 'The patient has disabled public emergency access to their medical profile.');
+        return;
+      }
+
+      // Populate UI with consent filtering
+      const shareName = profile.shareNameInEmergency !== false;
+      const sharePhoto = profile.sharePhotoInEmergency === true;
+      const shareDoctor = profile.shareDoctorHospitalInEmergency !== false;
+      const shareContacts = profile.shareContactsInEmergency !== false;
+
+      document.getElementById('patientName').innerText = shareName ? (profile.fullName || 'Emergency Patient') : 'Emergency Patient';
+      document.getElementById('emergencyIdTag').innerText = tokenData.displayEmergencyId || 'ST-0000-0000';
+      document.getElementById('bloodGroup').innerText = profile.bloodGroup || 'Not Specified';
+
+      if (sharePhoto && profile.photoUrl) {
+        document.getElementById('patientAvatarContainer').innerHTML = `<img src="${profile.photoUrl}" class="patient-avatar" alt="Photo">`;
+      }
+
+      document.getElementById('allergies').innerText = (profile.allergies && profile.allergies.trim()) ? profile.allergies : 'None reported';
+      document.getElementById('medicalConditions').innerText = (profile.medicalConditions && profile.medicalConditions.trim()) ? profile.medicalConditions : 'None reported';
+      document.getElementById('medications').innerText = (profile.currentMedications && profile.currentMedications.trim()) ? profile.currentMedications : 'None reported';
+      document.getElementById('implants').innerText = (profile.implants && profile.implants.trim()) ? profile.implants : 'None reported';
+      document.getElementById('emergencyNotes').innerText = (profile.notes && profile.notes.trim()) ? profile.notes : 'None provided';
+
+      if (shareDoctor && (profile.primaryDoctor || profile.preferredHospital)) {
+        document.getElementById('doctorHospitalSection').style.display = 'block';
+        if (profile.primaryDoctor) {
+          document.getElementById('primaryDoctor').innerText = profile.primaryDoctor;
+        } else {
+          document.getElementById('doctorBox').style.display = 'none';
+        }
+        if (profile.preferredHospital) {
+          document.getElementById('preferredHospital').innerText = profile.preferredHospital;
+        } else {
+          document.getElementById('hospitalBox').style.display = 'none';
+        }
+      }
+
+      if (shareContacts) {
+        const contactsSnapshot = await db.collection('users').doc(ownerUserId).collection('emergency_contacts')
+          .orderBy('priority', 'asc').limit(5).get();
+
+        if (!contactsSnapshot.empty) {
+          const listEl = document.getElementById('contactsList');
+          listEl.innerHTML = '';
+          contactsSnapshot.docs.forEach(doc => {
+            const c = doc.data();
+            const phone = c.phoneNumber || '';
+            const item = document.createElement('div');
+            item.className = 'contact-card';
+            item.innerHTML = `
+              <div class="contact-details">
+                <h4>${c.name || 'Emergency Contact'}</h4>
+                <p>${c.relationship || 'Contact'}</p>
+              </div>
+              ${phone ? `<a href="tel:${phone}" class="call-btn">📞 CALL</a>` : ''}
+            `;
+            listEl.appendChild(item);
+          });
+          document.getElementById('contactsSection').style.display = 'block';
+        }
+      }
+
+      document.getElementById('loadingState').style.display = 'none';
+      document.getElementById('contentState').style.display = 'block';
+
+    } catch (err) {
+      console.error('QR Resolution Error:', err);
+      showError('Emergency Lookup Failed', 'An error occurred while verifying the emergency key.');
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', resolveQrToken);
+</script>
+</body>
+</html>

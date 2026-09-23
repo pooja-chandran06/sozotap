@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../data/repositories/firebase_emergency_qr_repository.dart';
-import '../../domain/models/public_emergency_dto.dart';
 import 'public_emergency_view_screen.dart';
 
 class ManualEmergencyLookupScreen extends ConsumerStatefulWidget {

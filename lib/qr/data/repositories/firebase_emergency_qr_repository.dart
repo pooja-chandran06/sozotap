@@ -100,7 +100,7 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
 
       return {
         'tokenId': tokenRef.id,
-        'rawPayload': 'https://vitanexus.web.app/qr/$rawToken',
+        'rawPayload': 'https://sozotap.app/emergency/$rawToken',
         'rawToken': rawToken,
         'displayEmergencyId': displayEmergencyId,
         'expiresAt': expiresAt.toIso8601String(),
@@ -187,7 +187,10 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
     String sourceType = 'camera',
   }) async {
     String rawToken = inputToken.trim();
-    if (rawToken.contains('/qr/')) {
+    if (rawToken.contains('/emergency/')) {
+      final parts = rawToken.split('/emergency/');
+      rawToken = parts.last;
+    } else if (rawToken.contains('/qr/')) {
       final parts = rawToken.split('/qr/');
       rawToken = parts.last;
     }

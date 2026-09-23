@@ -232,7 +232,7 @@ export const createEmergencyQr = onCall(async (request) => {
 
     return {
       tokenId: tokenRef.id,
-      rawPayload: `https://vitanexus.web.app/qr/${rawToken}`,
+      rawPayload: `https://sozotap.web.app/qr/${rawToken}`,
       rawToken: rawToken,
       displayEmergencyId: displayEmergencyId,
       expiresAt: expiresAt.toISOString(),

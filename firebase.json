@@ -1,4 +1,26 @@
 {
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/qr/**",
+        "destination": "/qr.html"
+      },
+      {
+        "source": "/emergency/**",
+        "destination": "/qr.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "functions": {
     "source": "functions",
     "predeploy": [

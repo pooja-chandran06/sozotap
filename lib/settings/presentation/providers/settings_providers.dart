@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../domain/models/privacy_settings_model.dart';
 import '../../../core/offline/hive_cache_service.dart';
 import '../../../core/offline/connectivity_service.dart';
-
-final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
-  throw UnimplementedError('Initialize sharedPreferencesProvider in main.dart');
-});
+import '../../../providers/shared_preferences_provider.dart';
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
@@ -39,7 +35,7 @@ class ThemeModeNotifier extends StateNotifier<ThemeMode> {
 
   Future<void> setThemeMode(ThemeMode mode) async {
     state = mode;
-    final modeStr = mode.name; // system, light, dark
+    final modeStr = mode.name;
     await _repository.setThemeMode(modeStr);
   }
 

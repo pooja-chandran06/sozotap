@@ -3,7 +3,7 @@ abstract class NfcTagRepository {
   Future<bool> isNfcAvailable();
 
   /// Write an opaque SOZOTAP emergency token to an NDEF tag.
-  /// Formats the tag with URI record: https://vitanexus.web.app/scan?token=<opaqueToken>
+  /// Formats the tag with URI record: https://sozotap.web.app/qr?token=<opaqueToken>
   /// Never writes PII or raw medical data.
   Future<void> writeEmergencyTokenTag(String opaqueToken);
 

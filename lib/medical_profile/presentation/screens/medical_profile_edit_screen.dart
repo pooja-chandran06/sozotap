@@ -1,9 +1,11 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:sozotap/core/logging/safe_logger.dart';
+
 import '../../../constants/app_colors.dart';
 import '../../../authentication/presentation/providers/auth_provider.dart';
 import '../../domain/models/medical_profile.dart';
@@ -13,12 +15,14 @@ class MedicalProfileEditScreen extends ConsumerStatefulWidget {
   const MedicalProfileEditScreen({super.key});
 
   @override
-  ConsumerState<MedicalProfileEditScreen> createState() => _MedicalProfileEditScreenState();
+  ConsumerState<MedicalProfileEditScreen> createState() =>
+      _MedicalProfileEditScreenState();
 }
 
-class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScreen> {
+class _MedicalProfileEditScreenState
+    extends ConsumerState<MedicalProfileEditScreen> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final _fullNameCtrl = TextEditingController();
   final _ageCtrl = TextEditingController();
   final _genderCtrl = TextEditingController();
@@ -37,7 +41,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
 
   bool _isPregnant = false;
   bool _isOrganDonor = false;
-  
+
   File? _imageFile;
   String? _existingPhotoUrl;
   bool _isUploadingPhoto = false;
@@ -47,30 +51,38 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
       final profileState = ref.read(medicalProfileProvider);
-      SafeLogger.info('[MEDICAL_DEBUG] UI initState postFrameCallback. profileState: $profileState');
-      if (profileState.hasValue) {
-        if (mounted && !_hasInitialPopulated) {
-          setState(() {
-            _hasInitialPopulated = true;
-          });
-        }
-        if (profileState.value != null) {
-          _populateFields(profileState.value!);
-        }
+
+      SafeLogger.info(
+        '[MEDICAL_DEBUG] EDIT SCREEN INITIAL STATE: '
+        'loading=${profileState.isLoading}, '
+        'hasValue=${profileState.hasValue}, '
+        'hasError=${profileState.hasError}',
+      );
+
+      if (profileState.hasValue && profileState.value != null) {
+        _populateFields(profileState.value!);
       }
     });
   }
 
   void _populateFields(MedicalProfile profile) {
-    SafeLogger.info('[MEDICAL_DEBUG] UI POPULATION START for UID: ${profile.uid}');
+    SafeLogger.info(
+      '[MEDICAL_DEBUG] UI POPULATION START for UID: ${profile.uid}',
+    );
+
     _fullNameCtrl.text = profile.fullName;
     _ageCtrl.text = profile.age > 0 ? profile.age.toString() : '';
     _genderCtrl.text = profile.gender;
     _bloodGroupCtrl.text = profile.bloodGroup;
-    _heightCtrl.text = profile.heightCm > 0 ? profile.heightCm.toString() : '';
-    _weightCtrl.text = profile.weightKg > 0 ? profile.weightKg.toString() : '';
+    _heightCtrl.text =
+        profile.heightCm > 0 ? profile.heightCm.toString() : '';
+    _weightCtrl.text =
+        profile.weightKg > 0 ? profile.weightKg.toString() : '';
     _conditionsCtrl.text = profile.medicalConditions;
     _allergiesCtrl.text = profile.allergies;
     _medicationsCtrl.text = profile.currentMedications;
@@ -80,7 +92,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     _doctorCtrl.text = profile.primaryDoctor;
     _hospitalCtrl.text = profile.preferredHospital;
     _notesCtrl.text = profile.notes;
-    
+
     if (mounted) {
       setState(() {
         _isPregnant = profile.isPregnant;
@@ -89,7 +101,14 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
         _hasInitialPopulated = true;
       });
     }
-    SafeLogger.info('[MEDICAL_DEBUG] UI POPULATION COMPLETED: fullName = "${_fullNameCtrl.text}", age = "${_ageCtrl.text}", gender = "${_genderCtrl.text}", bloodGroup = "${_bloodGroupCtrl.text}"');
+
+    SafeLogger.info(
+      '[MEDICAL_DEBUG] UI POPULATION COMPLETED: '
+      'fullName="${_fullNameCtrl.text}", '
+      'age="${_ageCtrl.text}", '
+      'gender="${_genderCtrl.text}", '
+      'bloodGroup="${_bloodGroupCtrl.text}"',
+    );
   }
 
   @override
@@ -109,13 +128,19 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     _doctorCtrl.dispose();
     _hospitalCtrl.dispose();
     _notesCtrl.dispose();
+
     super.dispose();
   }
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (pickedFile != null) {
+
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+
+    if (pickedFile != null && mounted) {
       setState(() {
         _imageFile = File(pickedFile.path);
       });
@@ -124,26 +149,41 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
 
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
-    
+
     final user = ref.read(authStateProvider).value;
+
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('User session not found. Please log in again.'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('User session not found. Please log in again.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+    });
 
     try {
       String? photoUrl = _existingPhotoUrl;
 
       if (_imageFile != null) {
-        setState(() => _isUploadingPhoto = true);
+        setState(() {
+          _isUploadingPhoto = true;
+        });
+
         try {
-          photoUrl = await ref.read(medicalProfileProvider.notifier).uploadPhoto(_imageFile!);
+          photoUrl = await ref
+              .read(medicalProfileProvider.notifier)
+              .uploadPhoto(_imageFile!);
         } finally {
-          if (mounted) setState(() => _isUploadingPhoto = false);
+          if (mounted) {
+            setState(() {
+              _isUploadingPhoto = false;
+            });
+          }
         }
       }
 
@@ -169,63 +209,106 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
         primaryDoctor: _doctorCtrl.text.trim(),
         preferredHospital: _hospitalCtrl.text.trim(),
         notes: _notesCtrl.text.trim(),
-        emergencyAccessEnabled: currentProfile?.emergencyAccessEnabled ?? true,
-        sharePhotoInEmergency: currentProfile?.sharePhotoInEmergency ?? false,
-        shareNameInEmergency: currentProfile?.shareNameInEmergency ?? true,
-        shareDoctorHospitalInEmergency: currentProfile?.shareDoctorHospitalInEmergency ?? true,
-        shareContactsInEmergency: currentProfile?.shareContactsInEmergency ?? true,
-        shareDirectionsInEmergency: currentProfile?.shareDirectionsInEmergency ?? true,
+        emergencyAccessEnabled:
+            currentProfile?.emergencyAccessEnabled ?? true,
+        sharePhotoInEmergency:
+            currentProfile?.sharePhotoInEmergency ?? false,
+        shareNameInEmergency:
+            currentProfile?.shareNameInEmergency ?? true,
+        shareDoctorHospitalInEmergency:
+            currentProfile?.shareDoctorHospitalInEmergency ?? true,
+        shareContactsInEmergency:
+            currentProfile?.shareContactsInEmergency ?? true,
+        shareDirectionsInEmergency:
+            currentProfile?.shareDirectionsInEmergency ?? true,
         hospitalAddress: currentProfile?.hospitalAddress,
-        emergencyVisibleFieldsVersion: currentProfile?.emergencyVisibleFieldsVersion ?? 1,
+        emergencyVisibleFieldsVersion:
+            currentProfile?.emergencyVisibleFieldsVersion ?? 1,
         lastEmergencyProfileUpdateAt: DateTime.now(),
       );
 
-      await ref.read(medicalProfileProvider.notifier).saveProfile(profile);
-      
+      SafeLogger.info(
+        '[MEDICAL_DEBUG] UI CALLING SAVE PROFILE for UID: ${profile.uid}',
+      );
+
+      await ref
+          .read(medicalProfileProvider.notifier)
+          .saveProfile(profile);
+
+      SafeLogger.info(
+        '[MEDICAL_DEBUG] UI SAVE PROFILE RETURNED SUCCESSFULLY',
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile saved securely.'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('Profile saved securely.'),
+            backgroundColor: Colors.green,
+          ),
         );
+
         context.pop();
       }
-    } catch (e) {
+    } catch (e, st) {
+      SafeLogger.error(
+        '[MEDICAL_DEBUG] UI SAVE ERROR',
+        error: e,
+        stackTrace: st,
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to save profile: ${e.toString().replaceAll('Exception: ', '')}'),
+            content: Text(
+              'Failed to save profile: '
+              '${e.toString().replaceAll('Exception: ', '')}',
+            ),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
       if (mounted) {
-        setState(() => _isSaving = false);
+        setState(() {
+          _isSaving = false;
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AsyncValue<MedicalProfile?>>(medicalProfileProvider, (previous, next) {
-      SafeLogger.info('[MEDICAL_DEBUG] UI ref.listen trigger: next state is ${next.runtimeType} (hasValue: ${next.hasValue}, hasError: ${next.hasError}, value: ${next.value})');
-      if (next.hasValue) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            if (!_hasInitialPopulated) {
-              setState(() {
-                _hasInitialPopulated = true;
-              });
-            }
-            if (next.value != null) {
-              _populateFields(next.value!);
-            }
-          }
-        });
-      }
-    });
+    ref.listen<AsyncValue<MedicalProfile?>>(
+      medicalProfileProvider,
+      (previous, next) {
+        SafeLogger.info(
+          '[MEDICAL_DEBUG] UI PROFILE LISTENER: '
+          'loading=${next.isLoading}, '
+          'hasValue=${next.hasValue}, '
+          'hasError=${next.hasError}',
+        );
+
+        if (next.hasValue && next.value != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+
+            _populateFields(next.value!);
+          });
+        }
+      },
+    );
 
     final profileState = ref.watch(medicalProfileProvider);
-    SafeLogger.info('[MEDICAL_DEBUG] UI build frame render: isLoading = ${profileState.isLoading}, hasValue = ${profileState.hasValue}, hasError = ${profileState.hasError}, _hasInitialPopulated = $_hasInitialPopulated, _isSaving = $_isSaving');
+
+    SafeLogger.info(
+      '[MEDICAL_DEBUG] UI BUILD: '
+      'loading=${profileState.isLoading}, '
+      'hasValue=${profileState.hasValue}, '
+      'hasError=${profileState.hasError}, '
+      'populated=$_hasInitialPopulated, '
+      'saving=$_isSaving',
+    );
+
     final isLoading = _isSaving || _isUploadingPhoto;
 
     return Scaffold(
@@ -236,142 +319,291 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
         foregroundColor: Colors.white,
       ),
       body: SafeArea(
-        child: (profileState.isLoading && !_hasInitialPopulated && !_isSaving)
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('Loading Medical Profile...'),
-                  ],
-                ),
-              )
-            : (profileState.hasError && !_hasInitialPopulated && !_isSaving)
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.error_outline, size: 60, color: Colors.red),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Failed to load profile',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            profileState.error.toString().replaceAll('Exception: ', ''),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[700]),
-                          ),
-                          const SizedBox(height: 24),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              ref.read(medicalProfileProvider.notifier).loadProfile();
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+        child:
+            (profileState.isLoading &&
+                    !_hasInitialPopulated &&
+                    !_isSaving)
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Loading Medical Profile...'),
+                      ],
                     ),
                   )
-                : SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: GestureDetector(
-                      onTap: isLoading ? null : _pickImage,
-                      child: CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.grey[200],
-                        backgroundImage: _imageFile != null
-                            ? FileImage(_imageFile!)
-                            : (_existingPhotoUrl != null ? NetworkImage(_existingPhotoUrl!) : null) as ImageProvider?,
-                        child: _imageFile == null && _existingPhotoUrl == null
-                            ? const Icon(Icons.camera_alt, size: 40, color: Colors.grey)
-                            : null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  _buildSectionTitle('Basic Details'),
-                  _buildTextField(_fullNameCtrl, 'Full Name', required: true),
-                  Row(
-                    children: [
-                      Expanded(child: _buildTextField(_ageCtrl, 'Age', isNumber: true, required: true)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildTextField(_genderCtrl, 'Gender', required: true)),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Expanded(child: _buildTextField(_heightCtrl, 'Height (cm)', isNumber: true)),
-                      const SizedBox(width: 16),
-                      Expanded(child: _buildTextField(_weightCtrl, 'Weight (kg)', isNumber: true)),
-                    ],
-                  ),
-                  _buildTextField(_bloodGroupCtrl, 'Blood Group', required: true),
-                  
-                  const SizedBox(height: 24),
-                  _buildSectionTitle('Medical Information'),
-                  _buildTextField(_conditionsCtrl, 'Medical Conditions (e.g., Diabetes, Asthma)', maxLines: 3),
-                  _buildTextField(_allergiesCtrl, 'Allergies', maxLines: 2),
-                  _buildTextField(_medicationsCtrl, 'Current Medications', maxLines: 2),
-                  _buildTextField(_surgeriesCtrl, 'Past Surgeries', maxLines: 2),
-                  _buildTextField(_implantsCtrl, 'Implants (e.g., Pacemaker)'),
-                  
-                  SwitchListTile(
-                    title: const Text('Are you pregnant?'),
-                    value: _isPregnant,
-                    onChanged: (val) => setState(() => _isPregnant = val),
-                    activeColor: AppColors.primary,
-                  ),
-                  SwitchListTile(
-                    title: const Text('Registered Organ Donor?'),
-                    value: _isOrganDonor,
-                    onChanged: (val) => setState(() => _isOrganDonor = val),
-                    activeColor: AppColors.primary,
-                  ),
+                : (profileState.hasError &&
+                        !_hasInitialPopulated &&
+                        !_isSaving)
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 60,
+                                color: Colors.red,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Failed to load profile',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                profileState.error
+                                    .toString()
+                                    .replaceAll('Exception: ', ''),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: () {
+                                  ref
+                                      .read(
+                                        medicalProfileProvider.notifier,
+                                      )
+                                      .loadProfile();
+                                },
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.stretch,
+                            children: [
+                              Center(
+                                child: GestureDetector(
+                                  onTap: isLoading
+                                      ? null
+                                      : _pickImage,
+                                  child: CircleAvatar(
+                                    radius: 60,
+                                    backgroundColor: Colors.grey[200],
+                                    backgroundImage: _imageFile != null
+                                        ? FileImage(_imageFile!)
+                                        : (_existingPhotoUrl != null
+                                              ? NetworkImage(
+                                                  _existingPhotoUrl!,
+                                                )
+                                              : null) as ImageProvider?,
+                                    child:
+                                        _imageFile == null &&
+                                            _existingPhotoUrl == null
+                                        ? const Icon(
+                                            Icons.camera_alt,
+                                            size: 40,
+                                            color: Colors.grey,
+                                          )
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 32),
 
-                  const SizedBox(height: 24),
-                  _buildSectionTitle('Emergency Contacts & Insurance'),
-                  _buildTextField(_insuranceCtrl, 'Insurance Information'),
-                  _buildTextField(_doctorCtrl, 'Primary Doctor Name / Contact'),
-                  _buildTextField(_hospitalCtrl, 'Preferred Hospital'),
-                  _buildTextField(_notesCtrl, 'Additional Notes', maxLines: 3),
-                  
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              _buildSectionTitle('Basic Details'),
+
+                              _buildTextField(
+                                _fullNameCtrl,
+                                'Full Name',
+                                required: true,
+                              ),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _ageCtrl,
+                                      'Age',
+                                      isNumber: true,
+                                      required: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _genderCtrl,
+                                      'Gender',
+                                      required: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _heightCtrl,
+                                      'Height (cm)',
+                                      isNumber: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      _weightCtrl,
+                                      'Weight (kg)',
+                                      isNumber: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                              _buildTextField(
+                                _bloodGroupCtrl,
+                                'Blood Group',
+                                required: true,
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              _buildSectionTitle(
+                                'Medical Information',
+                              ),
+
+                              _buildTextField(
+                                _conditionsCtrl,
+                                'Medical Conditions (e.g., Diabetes, Asthma)',
+                                maxLines: 3,
+                              ),
+
+                              _buildTextField(
+                                _allergiesCtrl,
+                                'Allergies',
+                                maxLines: 2,
+                              ),
+
+                              _buildTextField(
+                                _medicationsCtrl,
+                                'Current Medications',
+                                maxLines: 2,
+                              ),
+
+                              _buildTextField(
+                                _surgeriesCtrl,
+                                'Past Surgeries',
+                                maxLines: 2,
+                              ),
+
+                              _buildTextField(
+                                _implantsCtrl,
+                                'Implants (e.g., Pacemaker)',
+                              ),
+
+                              SwitchListTile(
+                                title: const Text(
+                                  'Are you pregnant?',
+                                ),
+                                value: _isPregnant,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _isPregnant = val;
+                                  });
+                                },
+                                activeColor: AppColors.primary,
+                              ),
+
+                              SwitchListTile(
+                                title: const Text(
+                                  'Registered Organ Donor?',
+                                ),
+                                value: _isOrganDonor,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _isOrganDonor = val;
+                                  });
+                                },
+                                activeColor: AppColors.primary,
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              _buildSectionTitle(
+                                'Emergency Contacts & Insurance',
+                              ),
+
+                              _buildTextField(
+                                _insuranceCtrl,
+                                'Insurance Information',
+                              ),
+
+                              _buildTextField(
+                                _doctorCtrl,
+                                'Primary Doctor Name / Contact',
+                              ),
+
+                              _buildTextField(
+                                _hospitalCtrl,
+                                'Preferred Hospital',
+                              ),
+
+                              _buildTextField(
+                                _notesCtrl,
+                                'Additional Notes',
+                                maxLines: 3,
+                              ),
+
+                              const SizedBox(height: 32),
+
+                              SizedBox(
+                                height: 56,
+                                child: ElevatedButton(
+                                  onPressed:
+                                      isLoading ? null : _saveProfile,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius:
+                                          BorderRadius.circular(16),
+                                    ),
+                                  ),
+                                  child: isLoading
+                                      ? const CircularProgressIndicator(
+                                          color: Colors.white,
+                                        )
+                                      : const Text(
+                                          'Save Profile',
+                                          style: TextStyle(
+                                            fontSize: 18,
+                                            fontWeight:
+                                                FontWeight.bold,
+                                          ),
+                                        ),
+                                ),
+                              ),
+
+                              const SizedBox(height: 32),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text('Save Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
-        ),
+      ),
     );
   }
 
@@ -388,22 +620,41 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {bool isNumber = false, int maxLines = 1, bool required = false}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label, {
+    bool isNumber = false,
+    int maxLines = 1,
+    bool required = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextFormField(
         controller: controller,
-        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        keyboardType:
+            isNumber ? TextInputType.number : TextInputType.text,
         maxLines: maxLines,
-        validator: required ? (value) {
-          if (value == null || value.trim().isEmpty) return 'This field is required';
-          return null;
-        } : null,
+        validator: required
+            ? (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'This field is required';
+                }
+                return null;
+              }
+            : null,
         decoration: InputDecoration(
           labelText: label,
           alignLabelWithHint: true,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(
+              color: AppColors.primary,
+              width: 2,
+            ),
+          ),
         ),
       ),
     );

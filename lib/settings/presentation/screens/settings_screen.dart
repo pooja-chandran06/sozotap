@@ -122,7 +122,7 @@ class SettingsScreen extends ConsumerWidget {
             color: Colors.grey,
             title: 'Terms of Service',
             subtitle: 'Read official terms of service',
-            onTap: () => _launchUrlSafely(context, 'https://vitanexus.web.app/terms.html'),
+            onTap: () => _launchUrlSafely(context, 'https://sozotap.web.app/terms.html'),
           ),
 
           _buildTile(
@@ -130,7 +130,7 @@ class SettingsScreen extends ConsumerWidget {
             color: Colors.grey,
             title: 'Privacy Policy',
             subtitle: 'Read official privacy policy',
-            onTap: () => _launchUrlSafely(context, 'https://vitanexus.web.app/privacy.html'),
+            onTap: () => _launchUrlSafely(context, 'https://sozotap.web.app/privacy.html'),
           ),
 
           const SizedBox(height: 24),
