@@ -1,17 +1,15 @@
 import 'dart:io';
 import 'dart:ui' as ui;
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../constants/app_colors.dart';
-import '../../domain/models/emergency_qr_model.dart';
+import '../controllers/qr_state.dart';
 import '../providers/qr_providers.dart';
 import '../widgets/qr_settings_sheet.dart';
 
@@ -29,12 +27,6 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final state = ref.read(qrControllerProvider);
-      if (state.activeMetadata == null && !state.isLoading) {
-        ref.read(qrControllerProvider.notifier).issueOrCreateQr();
-      }
-    });
   }
 
   Future<void> _shareQrCode() async {
@@ -71,6 +63,27 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
   Widget build(BuildContext context) {
     final activeQrAsync = ref.watch(watchActiveQrMetadataProvider);
     final qrState = ref.watch(qrControllerProvider);
+
+    ref.listen<QrState>(qrControllerProvider, (previous, next) {
+      if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
+        debugPrint('[QR_DEBUG] Error message from qrControllerProvider: ${next.errorMessage}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.errorMessage!),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      if (next.successMessage != null && next.successMessage != previous?.successMessage) {
+        debugPrint('[QR_DEBUG] Success message from qrControllerProvider: ${next.successMessage}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(next.successMessage!),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -119,9 +132,18 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
                     ElevatedButton.icon(
                       onPressed: qrState.isLoading
                           ? null
-                          : () => ref.read(qrControllerProvider.notifier).issueOrCreateQr(),
-                      icon: const Icon(Icons.add_a_photo_rounded),
-                      label: const Text('ISSUE EMERGENCY QR CODE'),
+                          : () {
+                              debugPrint('[QR_DEBUG] "ISSUE EMERGENCY QR CODE" button pressed');
+                              ref.read(qrControllerProvider.notifier).issueOrCreateQr();
+                            },
+                      icon: qrState.isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Icon(Icons.add_a_photo_rounded),
+                      label: Text(qrState.isLoading ? 'ISSUING QR CODE...' : 'ISSUE EMERGENCY QR CODE'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 import '../../domain/models/emergency_qr_model.dart';
@@ -13,6 +14,7 @@ class QrController extends StateNotifier<QrState> {
   Future<void> issueOrCreateQr() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
+      debugPrint('[QR_DEBUG] Before calling createEmergencyQr service/repository');
       _logger.i('Issuing new Emergency QR via Cloud Function...');
       final result = await _repository.createEmergencyQr();
 
@@ -35,14 +37,17 @@ class QrController extends StateNotifier<QrState> {
         rawPayload: rawPayload,
       );
 
+      debugPrint('[QR_DEBUG] After successful QR generation: tokenId=${metadata.tokenId}');
+
       state = state.copyWith(
         isLoading: false,
         rawPayload: rawPayload,
         activeMetadata: metadata,
         successMessage: 'Emergency QR code created successfully.',
       );
-    } catch (e) {
-      _logger.e('Error issuing emergency QR code: $e');
+    } catch (e, stackTrace) {
+      debugPrint('[QR_DEBUG] Inside catch/error path in QR generation: $e');
+      _logger.e('Error issuing emergency QR code: $e', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to issue emergency QR code: $e',

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import '../../domain/models/emergency_qr_model.dart';
 import '../../domain/repositories/emergency_qr_repository.dart';
@@ -19,11 +20,14 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
   @override
   Future<Map<String, dynamic>> createEmergencyQr() async {
     try {
+      debugPrint('[QR_DEBUG] Repository: Calling createEmergencyQr Cloud Function...');
       _logger.i('Calling createEmergencyQr Cloud Function...');
       final callable = _functions.httpsCallable('createEmergencyQr');
       final result = await callable.call();
+      debugPrint('[QR_DEBUG] Repository: createEmergencyQr Cloud Function success: ${result.data}');
       return Map<String, dynamic>.from(result.data as Map);
     } catch (e, stackTrace) {
+      debugPrint('[QR_DEBUG] Repository: createEmergencyQr catch error: $e');
       _logger.e('Failed to create emergency QR code', error: e, stackTrace: stackTrace);
       rethrow;
     }
