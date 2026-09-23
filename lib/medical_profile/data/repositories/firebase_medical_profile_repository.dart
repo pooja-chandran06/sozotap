@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../../domain/models/medical_profile.dart';
 import '../../domain/repositories/medical_profile_repository.dart';
 import '../services/medical_profile_cache_service.dart';
+import 'package:sozotap/core/logging/safe_logger.dart';
 import '../../../utils/logger.dart';
 
 class FirebaseMedicalProfileRepository implements MedicalProfileRepository {
