@@ -43,7 +43,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyCCaQ14ez5zu9T5r9mLA2cSJ9skjuWxSVM',
-    appId: '1:628751053379:android:0900f9a09482e27e0cdaf6',
+    appId: '1:628751053379:android:a9a320f1ca62da280cdaf6',
     messagingSenderId: '628751053379',
     projectId: 'sozotap',
     storageBucket: 'sozotap.firebasestorage.app',
