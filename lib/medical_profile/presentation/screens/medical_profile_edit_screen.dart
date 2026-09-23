@@ -49,7 +49,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profileState = ref.read(medicalProfileProvider);
-      SafeLogger.info('[MedicalProfileEditScreen] initState postFrameCallback. profileState: $profileState');
+      SafeLogger.info('[MEDICAL_DEBUG] UI initState postFrameCallback. profileState: $profileState');
       if (profileState.hasValue) {
         if (mounted && !_hasInitialPopulated) {
           setState(() {
@@ -64,7 +64,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   }
 
   void _populateFields(MedicalProfile profile) {
-    SafeLogger.info('[MedicalProfileEditScreen] Populating fields for UID: ${profile.uid}, fullName: "${profile.fullName}", age: ${profile.age}');
+    SafeLogger.info('[MEDICAL_DEBUG] UI POPULATION START for UID: ${profile.uid}');
     _fullNameCtrl.text = profile.fullName;
     _ageCtrl.text = profile.age > 0 ? profile.age.toString() : '';
     _genderCtrl.text = profile.gender;
@@ -89,6 +89,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
         _hasInitialPopulated = true;
       });
     }
+    SafeLogger.info('[MEDICAL_DEBUG] UI POPULATION COMPLETED: fullName = "${_fullNameCtrl.text}", age = "${_ageCtrl.text}", gender = "${_genderCtrl.text}", bloodGroup = "${_bloodGroupCtrl.text}"');
   }
 
   @override
@@ -206,7 +207,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MedicalProfile?>>(medicalProfileProvider, (previous, next) {
-      SafeLogger.info('[MedicalProfileEditScreen] ref.listen state change: next state is ${next.runtimeType} (hasValue: ${next.hasValue}, value: ${next.value})');
+      SafeLogger.info('[MEDICAL_DEBUG] UI ref.listen trigger: next state is ${next.runtimeType} (hasValue: ${next.hasValue}, hasError: ${next.hasError}, value: ${next.value})');
       if (next.hasValue) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -224,6 +225,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     });
 
     final profileState = ref.watch(medicalProfileProvider);
+    SafeLogger.info('[MEDICAL_DEBUG] UI build frame render: isLoading = ${profileState.isLoading}, hasValue = ${profileState.hasValue}, hasError = ${profileState.hasError}, _hasInitialPopulated = $_hasInitialPopulated, _isSaving = $_isSaving');
     final isLoading = _isSaving || _isUploadingPhoto;
 
     return Scaffold(

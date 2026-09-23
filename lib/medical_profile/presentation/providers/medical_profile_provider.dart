@@ -28,39 +28,59 @@ class MedicalProfileController extends StateNotifier<AsyncValue<MedicalProfile?>
   final MedicalProfileRepository _repository;
   final String _uid;
 
-  MedicalProfileController(this._repository, this._uid) : super(const AsyncValue.loading());
+  MedicalProfileController(this._repository, this._uid) : super(const AsyncValue.loading()) {
+    SafeLogger.info('[MEDICAL_DEBUG] CONTROLLER CREATED for UID: $_uid');
+    SafeLogger.info('[MEDICAL_DEBUG] AUTH UID = $_uid');
+    SafeLogger.info('[MEDICAL_DEBUG] PROVIDER STATE = loading');
+  }
+
+  @override
+  void dispose() {
+    SafeLogger.info('[MEDICAL_DEBUG] CONTROLLER DISPOSED for UID: $_uid');
+    super.dispose();
+  }
 
   void clear() {
+    SafeLogger.info('[MEDICAL_DEBUG] PROVIDER STATE = data (null)');
     state = const AsyncValue.data(null);
   }
 
   Future<void> loadProfile() async {
+    SafeLogger.info('[MEDICAL_DEBUG] FETCH START for UID: $_uid');
     if (_uid.isEmpty) {
-      SafeLogger.info('[MedicalProfileController] Empty UID, setting AsyncValue.data(null)');
+      SafeLogger.info('[MEDICAL_DEBUG] AUTH UID is empty, setting AsyncValue.data(null)');
+      SafeLogger.info('[MEDICAL_DEBUG] PROVIDER STATE = data (null)');
+      SafeLogger.info('[MEDICAL_DEBUG] FETCH END for UID: $_uid');
       state = const AsyncValue.data(null);
       return;
     }
-    SafeLogger.info('[MedicalProfileController] Initiating loadProfile for UID: $_uid');
+    SafeLogger.info('[MEDICAL_DEBUG] Initiating loadProfile for UID: $_uid');
     state = const AsyncValue.loading();
+    SafeLogger.info('[MEDICAL_DEBUG] PROVIDER STATE = loading');
     try {
       final profile = await _repository.getProfile(_uid);
-      SafeLogger.info('[MedicalProfileController] getProfile completed. Profile found: ${profile != null}');
+      SafeLogger.info('[MEDICAL_DEBUG] FETCH END for UID: $_uid');
+      SafeLogger.info('[MEDICAL_DEBUG] PROVIDER DATA RECEIVED: ${profile != null ? "MedicalProfile(uid: ${profile.uid}, fullName: ${profile.fullName})" : "null"}');
       state = AsyncValue.data(profile);
+      SafeLogger.info('[MEDICAL_DEBUG] PROVIDER STATE = data');
     } catch (e, st) {
-      SafeLogger.error('[MedicalProfileController] Failed to load medical profile for UID: $_uid', error: e, stackTrace: st);
+      SafeLogger.info('[MEDICAL_DEBUG] FETCH END WITH ERROR for UID: $_uid: $e');
+      SafeLogger.error('[MEDICAL_DEBUG] PROVIDER STATE = error ($e)', error: e, stackTrace: st);
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> saveProfile(MedicalProfile profile) async {
     final previousState = state;
-    SafeLogger.info('[MedicalProfileController] Initiating saveProfile for UID: ${profile.uid}');
+    SafeLogger.info('[MEDICAL_DEBUG] SAVE START for UID: ${profile.uid}');
+    SafeLogger.info('[MEDICAL_DEBUG] SAVE UID = ${profile.uid}');
     try {
       await _repository.saveProfile(profile);
-      SafeLogger.info('[MedicalProfileController] saveProfile SUCCEEDED for UID: ${profile.uid}');
+      SafeLogger.info('[MEDICAL_DEBUG] SAVE SUCCEEDED for UID: ${profile.uid}');
       state = AsyncValue.data(profile);
+      SafeLogger.info('[MEDICAL_DEBUG] PROVIDER STATE = data (after save)');
     } catch (e, st) {
-      SafeLogger.error('[MedicalProfileController] saveProfile FAILED for UID: ${profile.uid}', error: e, stackTrace: st);
+      SafeLogger.error('[MEDICAL_DEBUG] SAVE FAILED for UID: ${profile.uid}', error: e, stackTrace: st);
       state = previousState;
       rethrow;
     }
