@@ -1,8 +1,9 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../constants/app_colors.dart';
+import '../../data/repositories/firebase_emergency_qr_repository.dart';
 import '../../domain/models/public_emergency_dto.dart';
 import 'public_emergency_view_screen.dart';
 
@@ -35,17 +36,11 @@ class _ManualEmergencyLookupScreenState extends ConsumerState<ManualEmergencyLoo
     setState(() => _isLoading = true);
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('resolveEmergencyQr');
-      final result = await callable.call({
-        'token': input,
-        'sourceType': 'manual',
-      });
-
-      if (result.data == null) {
-        throw Exception('invalid_token');
-      }
-
-      final dto = PublicEmergencyDto.fromMap(Map<String, dynamic>.from(result.data as Map));
+      final dto = await FirebaseEmergencyQrRepository.resolveEmergencyQrDirect(
+        firestore: FirebaseFirestore.instance,
+        inputToken: input,
+        sourceType: 'manual',
+      );
 
       if (mounted) {
         Navigator.of(context).pushReplacement(

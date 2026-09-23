@@ -1,4 +1,4 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../../constants/app_colors.dart';
+import '../../data/repositories/firebase_emergency_qr_repository.dart';
 import '../../domain/models/public_emergency_dto.dart';
 import 'public_emergency_view_screen.dart';
 
@@ -38,17 +39,11 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
     try {
       await _scannerController.stop();
 
-      final callable = FirebaseFunctions.instance.httpsCallable('resolveEmergencyQr');
-      final result = await callable.call({
-        'token': rawToken,
-        'sourceType': sourceType,
-      });
-
-      if (result.data == null) {
-        throw Exception('invalid_token');
-      }
-
-      final dto = PublicEmergencyDto.fromMap(Map<String, dynamic>.from(result.data as Map));
+      final dto = await FirebaseEmergencyQrRepository.resolveEmergencyQrDirect(
+        firestore: FirebaseFirestore.instance,
+        inputToken: rawToken,
+        sourceType: sourceType,
+      );
 
       if (mounted) {
         // Navigate safely to PublicEmergencyViewScreen without exposing raw token in URL
