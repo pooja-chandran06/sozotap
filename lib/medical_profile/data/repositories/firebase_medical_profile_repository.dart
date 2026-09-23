@@ -21,39 +21,64 @@ class FirebaseMedicalProfileRepository implements MedicalProfileRepository {
 
   @override
   Future<MedicalProfile?> getProfile(String uid) async {
+    final path = 'medical_profiles/$uid';
+    SafeLogger.info('[FirebaseMedicalProfileRepository] READ starting for UID: $uid at path: $path');
     try {
-      final doc = await _firestore
-          .collection('medical_profiles')
-          .doc(uid)
-          .get()
-          .timeout(const Duration(seconds: 5));
+      DocumentSnapshot<Map<String, dynamic>> doc;
+      try {
+        doc = await _firestore
+            .collection('medical_profiles')
+            .doc(uid)
+            .get(const GetOptions(source: Source.serverAndCache))
+            .timeout(const Duration(seconds: 6));
+      } catch (e) {
+        SafeLogger.warn('[FirebaseMedicalProfileRepository] Primary get() timed out or failed for $path, trying Firestore local disk cache', error: e);
+        doc = await _firestore
+            .collection('medical_profiles')
+            .doc(uid)
+            .get(const GetOptions(source: Source.cache));
+      }
+
+      SafeLogger.info('[FirebaseMedicalProfileRepository] Firestore get() returned. doc.exists: ${doc.exists}');
       if (doc.exists && doc.data() != null) {
-        final profile = MedicalProfile.fromMap(doc.data()!);
+        final data = doc.data()!;
+        SafeLogger.info('[FirebaseMedicalProfileRepository] Document found at $path. Fields present: ${data.keys.toList()}');
+        final profile = MedicalProfile.fromMap(data);
+        SafeLogger.info('[FirebaseMedicalProfileRepository] Deserialization successful for $path. Name: "${profile.fullName}", Age: ${profile.age}');
         await _cacheService.cacheProfile(profile);
         return profile;
       }
+      SafeLogger.info('[FirebaseMedicalProfileRepository] Document DOES NOT exist at $path in Firestore');
       return null;
     } catch (e, st) {
-      AppLogger.e('Failed to fetch profile from Firestore, checking cache', e, st);
+      SafeLogger.error('[FirebaseMedicalProfileRepository] Failed to fetch profile from Firestore at $path, checking SharedPreferences cache', error: e, stackTrace: st);
       final cached = _cacheService.getCachedProfile(uid);
       if (cached != null) {
+        SafeLogger.info('[FirebaseMedicalProfileRepository] SharedPreferences cache hit for $path');
         return cached;
       }
+      SafeLogger.error('[FirebaseMedicalProfileRepository] SharedPreferences cache miss for $path. Rethrowing error');
       rethrow;
     }
   }
 
   @override
   Future<void> saveProfile(MedicalProfile profile) async {
+    final path = 'medical_profiles/${profile.uid}';
+    SafeLogger.info('[FirebaseMedicalProfileRepository] SAVE starting for UID: ${profile.uid} at path: $path');
     try {
+      final map = profile.toMap();
+      SafeLogger.info('[FirebaseMedicalProfileRepository] Saving fields to $path: ${map.keys.toList()}');
       await _firestore
           .collection('medical_profiles')
           .doc(profile.uid)
-          .set(profile.toMap(), SetOptions(merge: true))
+          .set(map, SetOptions(merge: true))
           .timeout(const Duration(seconds: 10));
+      SafeLogger.info('[FirebaseMedicalProfileRepository] Firestore set() SUCCEEDED for $path');
       await _cacheService.cacheProfile(profile);
+      SafeLogger.info('[FirebaseMedicalProfileRepository] SharedPreferences cacheProfile SUCCEEDED for $path');
     } catch (e, st) {
-      AppLogger.e('Failed to save profile', e, st);
+      SafeLogger.error('[FirebaseMedicalProfileRepository] Failed to save profile at $path', error: e, stackTrace: st);
       throw Exception('Failed to save profile. Please check your connection.');
     }
   }

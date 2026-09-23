@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sozotap/core/logging/safe_logger.dart';
 import '../../../authentication/presentation/providers/auth_provider.dart';
 import '../../../providers/shared_preferences_provider.dart';
 import '../../data/services/medical_profile_cache_service.dart';
@@ -18,11 +19,9 @@ final medicalProfileRepositoryProvider = Provider<MedicalProfileRepository>((ref
 });
 
 final medicalProfileProvider = StateNotifierProvider<MedicalProfileController, AsyncValue<MedicalProfile?>>((ref) {
-  final user = ref.watch(authStateProvider).value;
-  if (user == null) {
-    return MedicalProfileController(ref.watch(medicalProfileRepositoryProvider), '')..clear();
-  }
-  return MedicalProfileController(ref.watch(medicalProfileRepositoryProvider), user.id)..loadProfile();
+  final uid = ref.watch(authStateProvider.select((asyncUser) => asyncUser.value?.id)) ?? '';
+  final repository = ref.watch(medicalProfileRepositoryProvider);
+  return MedicalProfileController(repository, uid)..loadProfile();
 });
 
 class MedicalProfileController extends StateNotifier<AsyncValue<MedicalProfile?>> {
@@ -37,24 +36,31 @@ class MedicalProfileController extends StateNotifier<AsyncValue<MedicalProfile?>
 
   Future<void> loadProfile() async {
     if (_uid.isEmpty) {
+      SafeLogger.info('[MedicalProfileController] Empty UID, setting AsyncValue.data(null)');
       state = const AsyncValue.data(null);
       return;
     }
+    SafeLogger.info('[MedicalProfileController] Initiating loadProfile for UID: $_uid');
     state = const AsyncValue.loading();
     try {
       final profile = await _repository.getProfile(_uid);
+      SafeLogger.info('[MedicalProfileController] getProfile completed. Profile found: ${profile != null}');
       state = AsyncValue.data(profile);
     } catch (e, st) {
+      SafeLogger.error('[MedicalProfileController] Failed to load medical profile for UID: $_uid', error: e, stackTrace: st);
       state = AsyncValue.error(e, st);
     }
   }
 
   Future<void> saveProfile(MedicalProfile profile) async {
     final previousState = state;
+    SafeLogger.info('[MedicalProfileController] Initiating saveProfile for UID: ${profile.uid}');
     try {
       await _repository.saveProfile(profile);
+      SafeLogger.info('[MedicalProfileController] saveProfile SUCCEEDED for UID: ${profile.uid}');
       state = AsyncValue.data(profile);
     } catch (e, st) {
+      SafeLogger.error('[MedicalProfileController] saveProfile FAILED for UID: ${profile.uid}', error: e, stackTrace: st);
       state = previousState;
       rethrow;
     }

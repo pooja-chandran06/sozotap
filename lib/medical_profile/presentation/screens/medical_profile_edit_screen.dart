@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:sozotap/core/logging/safe_logger.dart';
 import '../../../constants/app_colors.dart';
 import '../../../authentication/presentation/providers/auth_provider.dart';
 import '../../domain/models/medical_profile.dart';
@@ -48,6 +49,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profileState = ref.read(medicalProfileProvider);
+      SafeLogger.info('[MedicalProfileEditScreen] initState postFrameCallback. profileState: $profileState');
       if (profileState.hasValue) {
         if (mounted && !_hasInitialPopulated) {
           setState(() {
@@ -62,6 +64,7 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   }
 
   void _populateFields(MedicalProfile profile) {
+    SafeLogger.info('[MedicalProfileEditScreen] Populating fields for UID: ${profile.uid}, fullName: "${profile.fullName}", age: ${profile.age}');
     _fullNameCtrl.text = profile.fullName;
     _ageCtrl.text = profile.age > 0 ? profile.age.toString() : '';
     _genderCtrl.text = profile.gender;
@@ -203,15 +206,20 @@ class _MedicalProfileEditScreenState extends ConsumerState<MedicalProfileEditScr
   @override
   Widget build(BuildContext context) {
     ref.listen<AsyncValue<MedicalProfile?>>(medicalProfileProvider, (previous, next) {
+      SafeLogger.info('[MedicalProfileEditScreen] ref.listen state change: next state is ${next.runtimeType} (hasValue: ${next.hasValue}, value: ${next.value})');
       if (next.hasValue) {
-        if (mounted && !_hasInitialPopulated) {
-          setState(() {
-            _hasInitialPopulated = true;
-          });
-        }
-        if (next.value != null) {
-          _populateFields(next.value!);
-        }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            if (!_hasInitialPopulated) {
+              setState(() {
+                _hasInitialPopulated = true;
+              });
+            }
+            if (next.value != null) {
+              _populateFields(next.value!);
+            }
+          }
+        });
       }
     });
 
