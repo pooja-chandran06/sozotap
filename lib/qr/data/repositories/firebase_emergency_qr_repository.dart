@@ -100,7 +100,7 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
 
       return {
         'tokenId': tokenRef.id,
-        'rawPayload': 'https://sozotap.app/emergency/$rawToken',
+        'rawPayload': 'https://sozotap.web.app/emergency/$rawToken',
         'rawToken': rawToken,
         'displayEmergencyId': displayEmergencyId,
         'expiresAt': expiresAt.toIso8601String(),

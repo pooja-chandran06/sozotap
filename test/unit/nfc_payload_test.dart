@@ -4,9 +4,9 @@ void main() {
   group('NFC Payload Format Tests', () {
     test('enforces opaque SOZOTAP URL token format with zero PII', () {
       const opaqueToken = 'sozo_live_a1b2c3d4e5f678901234567890abcdef';
-      const targetUrl = 'https://sozotap.app/emergency/$opaqueToken';
+      const targetUrl = 'https://sozotap.web.app/emergency/$opaqueToken';
 
-      expect(targetUrl.startsWith('https://sozotap.app/emergency/'), true);
+      expect(targetUrl.startsWith('https://sozotap.web.app/emergency/'), true);
       expect(targetUrl.contains('name='), false);
       expect(targetUrl.contains('blood='), false);
       expect(targetUrl.contains('allergies='), false);

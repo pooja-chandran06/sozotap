@@ -5,7 +5,7 @@ import 'package:sozotap/core/errors/app_exception.dart';
 import 'package:sozotap/nfc/domain/repositories/nfc_tag_repository.dart';
 
 class NfcTagRepositoryImpl implements NfcTagRepository {
-  static const String _baseUrl = 'https://sozotap.app/emergency/';
+  static const String _baseUrl = 'https://sozotap.web.app/emergency/';
 
   @override
   Future<bool> isNfcAvailable() async {
