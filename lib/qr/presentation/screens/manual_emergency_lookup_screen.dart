@@ -96,7 +96,7 @@ class _ManualEmergencyLookupScreenState extends ConsumerState<ManualEmergencyLoo
               controller: _tokenController,
               decoration: InputDecoration(
                 labelText: 'Emergency Token / Key',
-                hintText: 'e.g. https://sozotap.com/qr/... or ST-AB7K-92QP',
+                hintText: 'e.g. https://sozotap.web.app/emergency/... or ST-AB7K-92QP',
                 prefixIcon: const Icon(Icons.key_rounded, color: AppColors.primary),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),

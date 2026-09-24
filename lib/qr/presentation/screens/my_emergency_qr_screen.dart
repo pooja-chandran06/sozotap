@@ -168,11 +168,56 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
 
       SafeLogger.info('[TRACE_QR] RENDERING_ACTIVE_QR_CARD displayId=${currentMetadata.displayEmergencyId}');
 
-          final String qrPayload =
-              qrState.rawPayload ?? 'https://sozotap.com/qr/${currentMetadata.tokenId}';
-          final String formattedExpiry = currentMetadata.expiresAt != null
-              ? DateFormat.yMMMd().format(currentMetadata.expiresAt!)
-              : 'No Expiration';
+      final String? qrPayload = qrState.rawPayload ?? currentMetadata.rawPayload;
+      if (qrPayload == null || qrPayload.isEmpty) {
+        SafeLogger.warn('[TRACE_QR] RENDERING_PAYLOAD_UNAVAILABLE_VIEW');
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.warning_amber_rounded, size: 64, color: Colors.amber),
+                const SizedBox(height: 16),
+                const Text(
+                  'Emergency QR Payload Unavailable',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Emergency ID: ${currentMetadata.displayEmergencyId}',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontFamily: 'Poppins'),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Please re-issue your QR code to generate a active emergency QR link.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppColors.textSecondary, fontFamily: 'Poppins'),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: qrState.isLoading
+                      ? null
+                      : () => ref.read(qrControllerProvider.notifier).issueOrCreateQr(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('RE-ISSUE EMERGENCY QR CODE'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final String formattedExpiry = currentMetadata.expiresAt != null
+          ? DateFormat.yMMMd().format(currentMetadata.expiresAt!)
+          : 'No Expiration';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20.0),

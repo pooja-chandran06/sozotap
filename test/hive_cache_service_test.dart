@@ -7,7 +7,7 @@ void main() {
       final qrMetadata = {
         'tokenId': 'token_99',
         'rawToken': 'SECRET_RAW_TOKEN_DO_NOT_CACHE',
-        'rawPayload': 'https://sozotap.com/qr/SECRET_RAW_TOKEN_DO_NOT_CACHE',
+        'rawPayload': 'https://sozotap.web.app/emergency/SECRET_RAW_TOKEN_DO_NOT_CACHE',
         'status': 'active',
         'scanCount': 5,
       };

@@ -231,7 +231,7 @@ exports.createEmergencyQr = (0, https_1.onCall)(async (request) => {
         await batch.commit();
         return {
             tokenId: tokenRef.id,
-            rawPayload: `https://vitanexus.web.app/qr/${rawToken}`,
+            rawPayload: `https://sozotap.web.app/emergency/${rawToken}`,
             rawToken: rawToken,
             displayEmergencyId: displayEmergencyId,
             expiresAt: expiresAt.toISOString(),

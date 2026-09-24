@@ -11,7 +11,7 @@ class MockEmergencyQrRepository implements EmergencyQrRepository {
   @override
   Future<Map<String, dynamic>> createEmergencyQr() async => {
         'tokenId': 'qr_123',
-        'rawPayload': 'https://sozotap.com/qr/sample_opaque_token',
+        'rawPayload': 'https://sozotap.web.app/emergency/sample_opaque_token',
         'displayEmergencyId': 'ST-AB7K-92QP',
         'expiresAt': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
       };
@@ -22,7 +22,7 @@ class MockEmergencyQrRepository implements EmergencyQrRepository {
   @override
   Future<Map<String, dynamic>> regenerateEmergencyQr() async => {
         'tokenId': 'qr_456',
-        'rawPayload': 'https://sozotap.com/qr/sample_new_token',
+        'rawPayload': 'https://sozotap.web.app/emergency/sample_new_token',
         'displayEmergencyId': 'ST-XY89-0012',
         'expiresAt': DateTime.now().add(const Duration(days: 90)).toIso8601String(),
       };
