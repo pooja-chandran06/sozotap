@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -148,17 +149,21 @@ class _MedicalProfileEditScreenState
   }
 
   Future<void> _saveProfile() async {
+    if (_isSaving) return;
     if (!_formKey.currentState!.validate()) return;
 
-    final user = ref.read(authStateProvider).value;
+    final authUid = FirebaseAuth.instance.currentUser?.uid ??
+        ref.read(authStateProvider).value?.id;
 
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('User session not found. Please log in again.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+    if (authUid == null || authUid.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('User session not found. Please log in again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
@@ -190,7 +195,7 @@ class _MedicalProfileEditScreenState
       final currentProfile = ref.read(medicalProfileProvider).value;
 
       final profile = MedicalProfile(
-        uid: user.id,
+        uid: authUid,
         photoUrl: photoUrl,
         fullName: _fullNameCtrl.text.trim(),
         age: int.tryParse(_ageCtrl.text) ?? 0,
@@ -228,7 +233,7 @@ class _MedicalProfileEditScreenState
       );
 
       SafeLogger.info(
-        '[MEDICAL_DEBUG] UI CALLING SAVE PROFILE for UID: ${profile.uid}',
+        '[MEDICAL_PROFILE_DEBUG] uid=$authUid saveProfile UI start',
       );
 
       await ref
@@ -236,7 +241,7 @@ class _MedicalProfileEditScreenState
           .saveProfile(profile);
 
       SafeLogger.info(
-        '[MEDICAL_DEBUG] UI SAVE PROFILE RETURNED SUCCESSFULLY',
+        '[MEDICAL_PROFILE_DEBUG] uid=$authUid saveProfile UI succeeded',
       );
 
       if (mounted) {
@@ -251,7 +256,7 @@ class _MedicalProfileEditScreenState
       }
     } catch (e, st) {
       SafeLogger.error(
-        '[MEDICAL_DEBUG] UI SAVE ERROR',
+        '[MEDICAL_PROFILE_DEBUG] UI save error: $e',
         error: e,
         stackTrace: st,
       );
@@ -271,6 +276,7 @@ class _MedicalProfileEditScreenState
       if (mounted) {
         setState(() {
           _isSaving = false;
+          _isUploadingPhoto = false;
         });
       }
     }
