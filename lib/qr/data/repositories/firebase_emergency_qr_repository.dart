@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
+import 'package:sozotap/core/logging/safe_logger.dart';
 import '../../domain/models/emergency_qr_model.dart';
 import '../../domain/models/public_emergency_dto.dart';
 import '../../domain/repositories/emergency_qr_repository.dart';
@@ -41,23 +42,22 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
   Future<Map<String, dynamic>> createEmergencyQr() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      debugPrint('[QR_DEBUG] Firestore Emergency QR creation failed: User not authenticated');
+      SafeLogger.info('[TRACE_QR] ERROR: User not authenticated');
       throw Exception('User not authenticated.');
     }
 
-    debugPrint('[QR_DEBUG] Creating Emergency QR using direct Firestore');
-    debugPrint('[QR_DEBUG] Firestore Emergency QR creation started');
-    _logger.i('Creating Emergency QR in Firestore for user ${user.uid}...');
+    final userId = user.uid;
+    SafeLogger.info('[TRACE_QR] REPOSITORY_CREATE_START uid=$userId');
 
     try {
-      final userId = user.uid;
-
-      // Revoke any existing active tokens for this user
+      SafeLogger.info('[TRACE_QR] QUERY_EXISTING_TOKENS_START uid=$userId');
       final existingTokensSnapshot = await _firestore
           .collection('emergency_qr_tokens')
           .where('ownerUserId', isEqualTo: userId)
           .where('status', isEqualTo: 'active')
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 10));
+      SafeLogger.info('[TRACE_QR] QUERY_EXISTING_TOKENS_END existingCount=${existingTokensSnapshot.docs.length}');
 
       final batch = _firestore.batch();
       for (final doc in existingTokensSnapshot.docs) {
@@ -67,10 +67,15 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
         });
       }
 
+      SafeLogger.info('[TRACE_QR] TOKEN_GENERATION_START');
       final rawToken = _generateOpaqueToken();
-      final tokenHash = _hashToken(rawToken);
-      final displayEmergencyId = _generateDisplayEmergencyId();
+      SafeLogger.info('[TRACE_QR] TOKEN_GENERATION_END');
 
+      SafeLogger.info('[TRACE_QR] HASH_START');
+      final tokenHash = _hashToken(rawToken);
+      SafeLogger.info('[TRACE_QR] HASH_END');
+
+      final displayEmergencyId = _generateDisplayEmergencyId();
       final tokenRef = _firestore.collection('emergency_qr_tokens').doc();
       final now = DateTime.now();
       final expiresAt = now.add(const Duration(days: 90));
@@ -93,21 +98,25 @@ class FirebaseEmergencyQrRepository implements EmergencyQrRepository {
       };
 
       batch.set(tokenRef, tokenData);
-      await batch.commit();
 
-      debugPrint('[QR_DEBUG] Firestore Emergency QR creation succeeded');
-      _logger.i('Emergency QR token created in Firestore: ${tokenRef.id}');
+      SafeLogger.info('[TRACE_QR] FIRESTORE_CREATE_START tokenId=${tokenRef.id}');
+      await batch.commit().timeout(const Duration(seconds: 15));
+      SafeLogger.info('[TRACE_QR] FIRESTORE_CREATE_END tokenId=${tokenRef.id}');
+      SafeLogger.info('[TRACE_QR] TOKEN_DOCUMENT_CREATED tokenId=${tokenRef.id}');
+
+      SafeLogger.info('[TRACE_QR] PAYLOAD_CREATE_START');
+      final payloadUrl = 'https://sozotap.web.app/emergency/$rawToken';
+      SafeLogger.info('[TRACE_QR] PAYLOAD_CREATE_END payloadUrl=$payloadUrl');
 
       return {
         'tokenId': tokenRef.id,
-        'rawPayload': 'https://sozotap.web.app/emergency/$rawToken',
+        'rawPayload': payloadUrl,
         'rawToken': rawToken,
         'displayEmergencyId': displayEmergencyId,
         'expiresAt': expiresAt.toIso8601String(),
       };
     } catch (e, stackTrace) {
-      debugPrint('[QR_DEBUG] Firestore Emergency QR creation failed');
-      _logger.e('Failed to create emergency QR code in Firestore', error: e, stackTrace: stackTrace);
+      SafeLogger.error('[TRACE_QR] ERROR in createEmergencyQr: $e', error: e, stackTrace: stackTrace);
       rethrow;
     }
   }

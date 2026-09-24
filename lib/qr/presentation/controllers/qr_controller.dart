@@ -1,21 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:logger/logger.dart';
 import '../../domain/models/emergency_qr_model.dart';
 import '../../domain/repositories/emergency_qr_repository.dart';
 import 'qr_state.dart';
 
+import 'package:sozotap/core/logging/safe_logger.dart';
+
 class QrController extends StateNotifier<QrState> {
   final EmergencyQrRepository _repository;
-  final Logger _logger = Logger();
 
-  QrController(this._repository) : super(const QrState());
+  QrController(this._repository) : super(const QrState()) {
+    SafeLogger.info('[TRACE_QR] CONTROLLER_CREATED');
+  }
+
+  @override
+  void dispose() {
+    SafeLogger.info('[TRACE_QR] CONTROLLER_DISPOSED');
+    super.dispose();
+  }
 
   Future<void> issueOrCreateQr() async {
+    SafeLogger.info('[TRACE_QR] CONTROLLER_START issueOrCreateQr');
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      debugPrint('[QR_DEBUG] Before calling createEmergencyQr service/repository');
-      _logger.i('Issuing new Emergency QR via Cloud Function...');
       final result = await _repository.createEmergencyQr();
 
       final rawPayload = result['rawPayload'] as String?;
@@ -37,7 +44,7 @@ class QrController extends StateNotifier<QrState> {
         rawPayload: rawPayload,
       );
 
-      debugPrint('[QR_DEBUG] After successful QR generation: tokenId=${metadata.tokenId}');
+      SafeLogger.info('[TRACE_QR] CONTROLLER_SUCCESS tokenId=${metadata.tokenId}');
 
       state = state.copyWith(
         isLoading: false,
@@ -46,19 +53,23 @@ class QrController extends StateNotifier<QrState> {
         successMessage: 'Emergency QR code created successfully.',
       );
     } catch (e, stackTrace) {
-      debugPrint('[QR_DEBUG] Inside catch/error path in QR generation: $e');
-      _logger.e('Error issuing emergency QR code: $e', error: e, stackTrace: stackTrace);
+      SafeLogger.error('[TRACE_QR] ERROR: $e', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to issue emergency QR code: $e',
       );
+    } finally {
+      SafeLogger.info('[TRACE_QR] FINALLY');
+      if (state.isLoading) {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 
   Future<void> regenerateQr() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      _logger.i('Regenerating Emergency QR via Cloud Function...');
+      SafeLogger.info('Regenerating Emergency QR via Cloud Function...');
       final result = await _repository.regenerateEmergencyQr();
 
       final rawPayload = result['rawPayload'] as String?;
@@ -86,8 +97,8 @@ class QrController extends StateNotifier<QrState> {
         activeMetadata: metadata,
         successMessage: 'Emergency QR code regenerated. Previous codes revoked.',
       );
-    } catch (e) {
-      _logger.e('Error regenerating QR code: $e');
+    } catch (e, stackTrace) {
+      SafeLogger.error('Error regenerating QR code: $e', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to regenerate emergency QR code: $e',
@@ -98,7 +109,7 @@ class QrController extends StateNotifier<QrState> {
   Future<void> revokeQr(String tokenId) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      _logger.i('Revoking Emergency QR tokenId: $tokenId');
+      SafeLogger.info('Revoking Emergency QR tokenId: $tokenId');
       await _repository.revokeEmergencyQr(tokenId);
 
       state = state.copyWith(
@@ -107,8 +118,8 @@ class QrController extends StateNotifier<QrState> {
         clearMetadata: true,
         successMessage: 'Emergency QR code revoked successfully.',
       );
-    } catch (e) {
-      _logger.e('Error revoking QR code: $e');
+    } catch (e, stackTrace) {
+      SafeLogger.error('Error revoking QR code: $e', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Failed to revoke QR code: $e',

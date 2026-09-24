@@ -149,11 +149,17 @@ class _MedicalProfileEditScreenState
   }
 
   Future<void> _saveProfile() async {
+    SafeLogger.info('[TRACE_SAVE] BUTTON');
     if (_isSaving) return;
-    if (!_formKey.currentState!.validate()) return;
+
+    SafeLogger.info('[TRACE_SAVE] VALIDATION_START');
+    final isValid = _formKey.currentState!.validate();
+    SafeLogger.info('[TRACE_SAVE] VALIDATION_END isValid=$isValid');
+    if (!isValid) return;
 
     final authUid = FirebaseAuth.instance.currentUser?.uid ??
         ref.read(authStateProvider).value?.id;
+    SafeLogger.info('[TRACE_SAVE] UID uid=$authUid');
 
     if (authUid == null || authUid.isEmpty) {
       if (mounted) {
@@ -180,9 +186,11 @@ class _MedicalProfileEditScreenState
         });
 
         try {
+          SafeLogger.info('[TRACE_SAVE] UPLOAD_PHOTO_START');
           photoUrl = await ref
               .read(medicalProfileProvider.notifier)
               .uploadPhoto(_imageFile!);
+          SafeLogger.info('[TRACE_SAVE] UPLOAD_PHOTO_END photoUrl=$photoUrl');
         } finally {
           if (mounted) {
             setState(() {
@@ -232,17 +240,11 @@ class _MedicalProfileEditScreenState
         lastEmergencyProfileUpdateAt: DateTime.now(),
       );
 
-      SafeLogger.info(
-        '[MEDICAL_PROFILE_DEBUG] uid=$authUid saveProfile UI start',
-      );
-
+      SafeLogger.info('[TRACE_SAVE] PROVIDER_SAVE_CALL_START uid=$authUid');
       await ref
           .read(medicalProfileProvider.notifier)
           .saveProfile(profile);
-
-      SafeLogger.info(
-        '[MEDICAL_PROFILE_DEBUG] uid=$authUid saveProfile UI succeeded',
-      );
+      SafeLogger.info('[TRACE_SAVE] PROVIDER_SAVE_CALL_END uid=$authUid');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -252,14 +254,11 @@ class _MedicalProfileEditScreenState
           ),
         );
 
+        SafeLogger.info('[TRACE_SAVE] COMPLETE context.pop()');
         context.pop();
       }
     } catch (e, st) {
-      SafeLogger.error(
-        '[MEDICAL_PROFILE_DEBUG] UI save error: $e',
-        error: e,
-        stackTrace: st,
-      );
+      SafeLogger.error('[TRACE_SAVE] ERROR: $e', error: e, stackTrace: st);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -273,6 +272,7 @@ class _MedicalProfileEditScreenState
         );
       }
     } finally {
+      SafeLogger.info('[TRACE_SAVE] FINALLY');
       if (mounted) {
         setState(() {
           _isSaving = false;

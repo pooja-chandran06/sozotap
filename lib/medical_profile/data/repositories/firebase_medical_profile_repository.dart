@@ -27,10 +27,10 @@ class FirebaseMedicalProfileRepository
   Future<MedicalProfile?> getProfile(String uid) async {
     final path = 'medical_profiles/$uid';
 
-    SafeLogger.info('[MEDICAL_PROFILE_DEBUG] uid=$uid getProfile started, path=$path');
+    SafeLogger.info('[TRACE_MP] getProfile START uid=$uid path=$path');
 
     if (uid.isEmpty) {
-      SafeLogger.info('[MEDICAL_PROFILE_DEBUG] uid is empty, returning null');
+      SafeLogger.info('[TRACE_MP] getProfile END uid=$uid (empty UID)');
       return null;
     }
 
@@ -38,61 +38,45 @@ class FirebaseMedicalProfileRepository
     Object? serverError;
 
     try {
+      SafeLogger.info('[TRACE_MP] FIRESTORE_GET_START uid=$uid');
       doc = await _firestore
           .collection('medical_profiles')
           .doc(uid)
           .get()
           .timeout(const Duration(seconds: 15));
-
-      SafeLogger.info(
-        '[MEDICAL_PROFILE_DEBUG] Firestore doc fetch completed. exists=${doc.exists}',
-      );
+      SafeLogger.info('[TRACE_MP] FIRESTORE_GET_END uid=$uid docExists=${doc.exists}');
     } catch (e, st) {
       serverError = e;
-      SafeLogger.info(
-        '[MEDICAL_PROFILE_DEBUG] Firestore doc fetch error/timeout: $e',
-      );
+      SafeLogger.info('[TRACE_MP] FIRESTORE_GET_ERROR uid=$uid error=$e');
     }
 
     if (doc == null || !doc.exists) {
       try {
+        SafeLogger.info('[TRACE_MP] FIRESTORE_CACHE_GET_START uid=$uid');
         final cacheDoc = await _firestore
             .collection('medical_profiles')
             .doc(uid)
             .get(const GetOptions(source: Source.cache));
+        SafeLogger.info('[TRACE_MP] FIRESTORE_CACHE_GET_END uid=$uid cacheDocExists=${cacheDoc.exists}');
 
         if (cacheDoc.exists) {
           doc = cacheDoc;
-          SafeLogger.info(
-            '[MEDICAL_PROFILE_DEBUG] Firestore cache source doc retrieved. exists=true',
-          );
         }
       } catch (cacheErr) {
-        SafeLogger.info(
-          '[MEDICAL_PROFILE_DEBUG] Firestore cache source doc fetch failed: $cacheErr',
-        );
+        SafeLogger.info('[TRACE_MP] FIRESTORE_CACHE_GET_ERROR uid=$uid error=$cacheErr');
       }
     }
 
     if (doc != null && doc.exists && doc.data() != null) {
       final data = doc.data()!;
-      SafeLogger.info(
-        '[MEDICAL_PROFILE_DEBUG] DOCUMENT EXISTS = true, keys=${data.keys.toList()}',
-      );
-
       try {
         final profile = MedicalProfile.fromMap(data);
-        SafeLogger.info(
-          '[MEDICAL_PROFILE_DEBUG] Deserialization successful for uid=$uid, fullName="${profile.fullName}"',
-        );
+        SafeLogger.info('[TRACE_MP] DESERIALIZE_SUCCESS uid=$uid fullName="${profile.fullName}"');
         await _cacheService.cacheProfile(profile);
+        SafeLogger.info('[TRACE_MP] getProfile END uid=$uid (doc loaded)');
         return profile;
       } catch (e, st) {
-        SafeLogger.error(
-          '[MEDICAL_PROFILE_DEBUG] Deserialization error for uid=$uid: $e',
-          error: e,
-          stackTrace: st,
-        );
+        SafeLogger.error('[TRACE_MP] DESERIALIZE_ERROR uid=$uid error=$e', error: e, stackTrace: st);
         rethrow;
       }
     }
@@ -100,16 +84,14 @@ class FirebaseMedicalProfileRepository
     if (serverError != null) {
       final cached = _cacheService.getCachedProfile(uid);
       if (cached != null) {
-        SafeLogger.info(
-          '[MEDICAL_PROFILE_DEBUG] Returning SharedPreferences cached profile fallback for uid=$uid: "${cached.fullName}"',
-        );
+        SafeLogger.info('[TRACE_MP] getProfile END uid=$uid (fallback to SP cache)');
         return cached;
       }
-      SafeLogger.info('[MEDICAL_PROFILE_DEBUG] Re-throwing server error for uid=$uid: $serverError');
+      SafeLogger.info('[TRACE_MP] getProfile ERROR uid=$uid rethrowing error=$serverError');
       throw serverError;
     }
 
-    SafeLogger.info('[MEDICAL_PROFILE_DEBUG] Document clean 404 (does not exist on Firestore) for uid=$uid');
+    SafeLogger.info('[TRACE_MP] getProfile END uid=$uid (clean 404)');
     return null;
   }
 
@@ -117,7 +99,7 @@ class FirebaseMedicalProfileRepository
   Future<void> saveProfile(MedicalProfile profile) async {
     final path = 'medical_profiles/${profile.uid}';
 
-    SafeLogger.info('[MEDICAL_PROFILE_DEBUG] uid=${profile.uid} save started, path=$path');
+    SafeLogger.info('[TRACE_SAVE] FIRESTORE_START uid=${profile.uid} path=$path');
 
     if (profile.uid.isEmpty) {
       throw Exception('Cannot save profile with an empty User ID.');
@@ -125,41 +107,28 @@ class FirebaseMedicalProfileRepository
 
     final map = profile.toMap();
 
-    SafeLogger.info(
-      '[MEDICAL_PROFILE_DEBUG] save payload keys=${map.keys.toList()}, fullName="${map['fullName']}", age=${map['age']}',
-    );
-
     try {
       await _firestore
           .collection('medical_profiles')
           .doc(profile.uid)
           .set(map, SetOptions(merge: true))
           .timeout(const Duration(seconds: 15));
-
-      SafeLogger.info('[MEDICAL_PROFILE_DEBUG] uid=${profile.uid} Firestore write completed successfully');
+      SafeLogger.info('[TRACE_SAVE] FIRESTORE_END uid=${profile.uid}');
 
       try {
+        SafeLogger.info('[TRACE_SAVE] CACHE_START uid=${profile.uid}');
         await _cacheService
             .cacheProfile(profile)
             .timeout(const Duration(seconds: 5));
-        SafeLogger.info('[MEDICAL_PROFILE_DEBUG] uid=${profile.uid} SharedPreferences cache write completed');
+        SafeLogger.info('[TRACE_SAVE] CACHE_END uid=${profile.uid}');
       } catch (cacheError) {
-        SafeLogger.warn(
-          '[MEDICAL_PROFILE_DEBUG] SharedPreferences cache write failed, continuing: $cacheError',
-        );
+        SafeLogger.info('[TRACE_SAVE] CACHE_ERROR uid=${profile.uid} error=$cacheError');
       }
 
-      SafeLogger.info('[MEDICAL_PROFILE_DEBUG] uid=${profile.uid} save completed');
+      SafeLogger.info('[TRACE_SAVE] REPOSITORY_SAVE_COMPLETE uid=${profile.uid}');
     } catch (e, st) {
-      SafeLogger.error(
-        '[MEDICAL_PROFILE_DEBUG] uid=${profile.uid} save failed: $e',
-        error: e,
-        stackTrace: st,
-      );
-
-      throw Exception(
-        'Unable to save profile. Please check your connection and try again.',
-      );
+      SafeLogger.error('[TRACE_SAVE] FIRESTORE_SAVE_ERROR uid=${profile.uid} error=$e', error: e, stackTrace: st);
+      throw Exception('Unable to save profile. Please check your connection and try again.');
     }
   }
 

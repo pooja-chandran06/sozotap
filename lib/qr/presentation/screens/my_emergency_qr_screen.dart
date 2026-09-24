@@ -13,6 +13,8 @@ import '../controllers/qr_state.dart';
 import '../providers/qr_providers.dart';
 import '../widgets/qr_settings_sheet.dart';
 
+import 'package:sozotap/core/logging/safe_logger.dart';
+
 class MyEmergencyQrScreen extends ConsumerStatefulWidget {
   const MyEmergencyQrScreen({super.key});
 
@@ -27,6 +29,7 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
   @override
   void initState() {
     super.initState();
+    SafeLogger.info('[TRACE_QR] SCREEN_OPEN');
   }
 
   Future<void> _shareQrCode() async {
@@ -64,9 +67,17 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
     final activeQrAsync = ref.watch(watchActiveQrMetadataProvider);
     final qrState = ref.watch(qrControllerProvider);
 
+    SafeLogger.info(
+      '[TRACE_QR] SCREEN_BUILD isLoading=${activeQrAsync.isLoading} '
+      'hasValue=${activeQrAsync.hasValue} '
+      'qrStateIsLoading=${qrState.isLoading} '
+      'hasControllerMetadata=${qrState.activeMetadata != null} '
+      'hasStreamData=${activeQrAsync.hasValue && activeQrAsync.value != null}',
+    );
+
     ref.listen<QrState>(qrControllerProvider, (previous, next) {
       if (next.errorMessage != null && next.errorMessage != previous?.errorMessage) {
-        debugPrint('[QR_DEBUG] Error message from qrControllerProvider: ${next.errorMessage}');
+        SafeLogger.error('[TRACE_QR] Error from controller: ${next.errorMessage}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage!),
@@ -75,7 +86,7 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
         );
       }
       if (next.successMessage != null && next.successMessage != previous?.successMessage) {
-        debugPrint('[QR_DEBUG] Success message from qrControllerProvider: ${next.successMessage}');
+        SafeLogger.info('[TRACE_QR] Success from controller: ${next.successMessage}');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.successMessage!),
@@ -85,77 +96,77 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'My Emergency QR',
-          style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
-        ),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.tune_rounded),
-            tooltip: 'QR Settings',
-            onPressed: () => QrSettingsSheet.show(context),
-          ),
-        ],
-      ),
-      body: activeQrAsync.when(
-        data: (metadata) {
-          final currentMetadata = metadata ?? qrState.activeMetadata;
+    final currentMetadata = activeQrAsync.value ?? qrState.activeMetadata;
 
-          if (currentMetadata == null || !currentMetadata.isActive) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.qr_code_2_rounded, size: 80, color: Colors.grey),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No Active Emergency QR',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Poppins',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Issue a dynamic, cryptographically secure QR code for emergency responders.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey, fontFamily: 'Poppins'),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: qrState.isLoading
-                          ? null
-                          : () {
-                              debugPrint('[QR_DEBUG] "ISSUE EMERGENCY QR CODE" button pressed');
-                              ref.read(qrControllerProvider.notifier).issueOrCreateQr();
-                            },
-                      icon: qrState.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                            )
-                          : const Icon(Icons.add_a_photo_rounded),
-                      label: Text(qrState.isLoading ? 'ISSUING QR CODE...' : 'ISSUE EMERGENCY QR CODE'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  ],
+    Widget buildContent() {
+      if (currentMetadata == null || !currentMetadata.isActive) {
+        if (activeQrAsync.isLoading && qrState.activeMetadata == null) {
+          SafeLogger.info('[TRACE_QR] RENDERING_STREAM_INITIAL_LOADING');
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading Emergency QR...', style: TextStyle(fontFamily: 'Poppins')),
+              ],
+            ),
+          );
+        }
+
+        SafeLogger.info('[TRACE_QR] RENDERING_NO_ACTIVE_QR_VIEW');
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.qr_code_2_rounded, size: 80, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text(
+                  'No Active Emergency QR',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Poppins',
+                  ),
                 ),
-              ),
-            );
-          }
+                const SizedBox(height: 8),
+                const Text(
+                  'Issue a dynamic, cryptographically secure QR code for emergency responders.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontFamily: 'Poppins'),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: qrState.isLoading
+                      ? null
+                      : () {
+                          SafeLogger.info('[TRACE_QR] ISSUE_BUTTON clicked');
+                          ref.read(qrControllerProvider.notifier).issueOrCreateQr();
+                        },
+                  icon: qrState.isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_a_photo_rounded),
+                  label: Text(qrState.isLoading ? 'ISSUING QR CODE...' : 'ISSUE EMERGENCY QR CODE'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      SafeLogger.info('[TRACE_QR] RENDERING_ACTIVE_QR_CARD displayId=${currentMetadata.displayEmergencyId}');
 
           final String qrPayload =
               qrState.rawPayload ?? 'https://sozotap.com/qr/${currentMetadata.tokenId}';
@@ -344,10 +355,25 @@ class _MyEmergencyQrScreenState extends ConsumerState<MyEmergencyQrScreen> {
               ],
             ),
           );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error loading QR code: $err')),
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'My Emergency QR',
+          style: TextStyle(fontWeight: FontWeight.bold, fontFamily: 'Poppins'),
+        ),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune_rounded),
+            tooltip: 'QR Settings',
+            onPressed: () => QrSettingsSheet.show(context),
+          ),
+        ],
       ),
+      body: buildContent(),
     );
   }
 }
